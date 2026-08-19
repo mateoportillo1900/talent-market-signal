@@ -28,8 +28,8 @@
 --   Measured effect, scoring all 62 occupations against Software Developers:
 --
 --                     range              spread
---     raw cosine      0.864  to  0.978    0.113
---     centered       -0.465  to  0.696    1.161   ~10x wider
+--     raw cosine      0.8641 to  0.9775   0.1134
+--     centered      -0.4646 to  0.6964   1.1610   10.2x wider
 --
 --   Same ordering at the very top, but raw cosine packs 62 occupations into
 --   eleven-hundredths of a point, so the gap between the 3rd and the 30th
