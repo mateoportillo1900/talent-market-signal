@@ -1,0 +1,118 @@
+name: Load real data
+
+# Downloads BLS and O*NET, builds the dataset, and loads it into Neon.
+#
+# This exists because the sources are large and the machine that needs them is
+# not always the machine that has bandwidth. A GitHub runner has both, so the
+# whole pipeline can run from a button rather than a terminal.
+#
+# Manual only. It replaces the contents of the mart, so it should be a
+# deliberate act, not something a push triggers by accident.
+on:
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: "Only verify the source URLs, download nothing"
+        type: boolean
+        default: false
+      run_tests:
+        description: "Run the full test suite against the loaded data"
+        type: boolean
+        default: true
+
+jobs:
+  load:
+    name: Build and load
+    runs-on: ubuntu-latest
+    # BLS serves these files slowly. The default 6h cap is far more than
+    # needed, but a stuck download should not burn an hour before failing.
+    timeout-minutes: 45
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Check the secret is set
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set."
+            echo "Add it at Settings -> Secrets and variables -> Actions"
+            exit 1
+          fi
+          # Never printed: this repo is public, so workflow logs are too.
+          echo "DATABASE_URL is set (value withheld)"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # Ten seconds of checking beats ten minutes of downloading into a 404.
+      # BLS reorganises its paths between vintages, and when it does, this step
+      # names the URL that moved.
+      - name: Verify the source URLs
+        run: python scripts/build_dataset.py --check
+
+      - name: Stop here if check-only
+        if: ${{ inputs.check_only }}
+        run: |
+          echo "check_only was set — sources verified, nothing downloaded."
+          exit 0
+
+      # ~150 MB of federal flat files. Caching them means a re-run after a
+      # parsing fix costs seconds rather than another full download.
+      - name: Restore cached downloads
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: bls-onet-${{ hashFiles('scripts/sources.py') }}
+          restore-keys: bls-onet-
+
+      - name: Build the dataset
+        run: python scripts/build_dataset.py
+
+      - name: Load into Neon
+        run: python scripts/load_to_postgres.py
+
+      - name: Run the test suite against real data
+        if: ${{ inputs.run_tests }}
+        run: pytest -q
+
+      # The same Parquet the build produced, so it can be inspected or
+      # committed without re-running the download.
+      - name: Upload the built dataset
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: talent-market-parquet
+          path: data/*.parquet
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Real data load"
+            echo ""
+            if [ -f data/talent_market.parquet ]; then
+              python - <<'PY'
+          import pandas as pd
+          t = pd.read_parquet("data/talent_market.parquet")
+          s = pd.read_parquet("data/skills.parquet")
+          print(f"- **{len(t):,}** occupation x metro facts")
+          print(f"- **{t['soc_code'].nunique()}** occupations across "
+                f"**{t['area_code'].nunique()}** metros")
+          print(f"- **{len(s):,}** skill ratings")
+          print("")
+          print("The app's synthetic-data banner should now be gone.")
+          PY
+            else
+              echo "No dataset produced — see the failing step above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
