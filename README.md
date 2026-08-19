@@ -34,7 +34,7 @@ role, what do we do?"* — and it answers it in a sentence someone can repeat.
 <sub>SQL QUERIES<br/><sup>all analysis, zero pandas logic</sup></sub>
 </td>
 <td align="center" width="25%">
-<h3>120</h3>
+<h3>122</h3>
 <sub>TESTS<br/><sup>on real Postgres, every push</sup></sub>
 </td>
 <td align="center" width="25%">
@@ -252,8 +252,9 @@ Not "does it return rows" — the failure that reaches a customer:
 | `test_percentile_choice_changes_the_answer` | A selector that silently stops changing anything |
 | `test_pool_summary_direction_matches_the_wage_premium` | A narrative saying "below" when the number is above |
 
-CI runs all 120 against a real `postgres:16` container, using the same loader
-that loads real data — so the constraints are exercised on every push.
+CI runs all 122 against a real `postgres:16` container, using the same loader
+that loads real data — so the constraints are exercised on every push. A
+separate manual workflow runs the same suite against the live Neon database.
 
 ---
 
@@ -312,7 +313,7 @@ streamlit run app.py
 ```
 
 ```bash
-pytest -q                            # 120 tests
+pytest -q                            # 122 tests
 ruff check . && ruff format --check .
 python scripts/explain_queries.py    # query plans
 ```
