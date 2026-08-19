@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Lint + format ──────────────────────────────────────────────────────────
+  lint:
+    name: Lint Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff check
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+  # ── Tests ──────────────────────────────────────────────────────────────────
+  # The real dataset is a committed Parquet, but CI runs against a synthetic
+  # fixture instead. That keeps the test suite honest: it proves the metric
+  # logic and the report renderer work on *any* schema-conformant data, not
+  # just on the one snapshot that happens to be checked in.
+  test:
+    name: Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Build synthetic fixture
+        run: python scripts/make_fixture.py
+
+      - name: Run tests
+        run: pytest -q

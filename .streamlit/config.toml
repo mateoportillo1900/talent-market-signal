@@ -1,0 +1,14 @@
+[theme]
+# LinkedIn brand blue — this is a Talent Solutions insights product, so the
+# palette should read as business intelligence, not consumer analytics.
+primaryColor = "#0A66C2"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F3F6F8"
+textColor = "#1D2226"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+maxUploadSize = 20
