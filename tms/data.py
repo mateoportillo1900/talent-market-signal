@@ -1,33 +1,32 @@
 """
-Load the dataset.
+Read the mart.
 
-Resolution order is deliberate: real data if it is present, synthetic fixture
-otherwise, and a clear error if neither is. Nothing here silently invents
-data — if the app is running on the fixture, `load()` says so and the UI is
-expected to shout about it.
+Thin readers over the two warehouse tables, for the cases that genuinely need
+a whole table in memory — populating a picker, running a contract test. The
+analytical work does not come through here; it goes through `tms.query` so the
+computation happens in the database.
 """
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
-from pathlib import Path
 
 import pandas as pd
 
-from tms import schema
+from tms import db
 
 
-class DatasetNotFound(FileNotFoundError):
-    """Neither the real Parquet nor the fixture is on disk."""
+class MartNotLoaded(RuntimeError):
+    """The schema exists but the tables are missing or empty."""
 
 
 @dataclass(frozen=True)
 class Dataset:
-    """Everything the app reads, plus provenance."""
+    """Both mart tables, plus provenance."""
 
     talent: pd.DataFrame
     skills: pd.DataFrame
-    source_dir: Path
     is_synthetic: bool
 
     @property
@@ -40,41 +39,73 @@ class Dataset:
         )
 
 
-def resolve_source() -> tuple[Path, bool]:
-    """Return (directory, is_synthetic) for whichever dataset is available."""
-    real = schema.DATA_DIR / schema.TALENT_PARQUET
-    if real.exists():
-        return schema.DATA_DIR, False
+def is_synthetic() -> bool:
+    """Whether the loaded mart came from the fixture rather than real data.
 
-    fixture = schema.FIXTURE_DIR / schema.TALENT_PARQUET
-    if fixture.exists():
-        return schema.FIXTURE_DIR, True
+    Detected structurally rather than from a flag column: the fixture's metro
+    set is a fixed list of 40, while the real build carries every MSA BLS
+    reports. Any dataset that small is the fixture.
 
-    raise DatasetNotFound(
-        "No dataset found.\n\n"
-        f"  Looked for real data at:  {real}\n"
-        f"  Looked for a fixture at:  {fixture}\n\n"
-        "Build the real dataset with:  python scripts/build_dataset.py\n"
-        "Or a synthetic fixture with:  python scripts/make_fixture.py"
+    The app uses this to display a banner, so a screenshot of synthetic data
+    can never be mistaken for the real thing.
+    """
+    out = db.run_query(
+        "SELECT COUNT(DISTINCT area_code) AS metros FROM mart.talent_market"
     )
+    return int(out.iloc[0]["metros"]) <= 45
+
+
+def require_mart() -> None:
+    """Fail early and helpfully if nobody has loaded the warehouse."""
+    for table in ("talent_market", "skills"):
+        if not db.table_exists(table):
+            raise MartNotLoaded(
+                f"mart.{table} does not exist.\n\n"
+                "Load it with:\n"
+                "  python scripts/make_fixture.py\n"
+                "  python scripts/load_to_postgres.py --fixture\n\n"
+                "Or, for real data:\n"
+                "  python scripts/build_dataset.py\n"
+                "  python scripts/load_to_postgres.py"
+            )
+
+    counts = db.run_query("SELECT COUNT(*) AS n FROM mart.talent_market")
+    if int(counts.iloc[0]["n"]) == 0:
+        raise MartNotLoaded("mart.talent_market exists but is empty.")
 
 
 def load() -> Dataset:
-    """Read both Parquet files from whichever source is available."""
-    source_dir, is_synthetic = resolve_source()
-
-    talent = pd.read_parquet(source_dir / schema.TALENT_PARQUET)
-    skills = pd.read_parquet(source_dir / schema.SKILLS_PARQUET)
-
-    # Parquet round-trips dtypes faithfully, but a hand-edited or
-    # externally-produced file might not. Coercing here means every downstream
-    # module can assume the contract in tms.schema holds.
-    talent = talent.astype(schema.TALENT_COLUMNS)
-    skills = skills.astype(schema.SKILLS_COLUMNS)
-
+    """Read both mart tables in full. Used by contract tests and pickers."""
+    require_mart()
     return Dataset(
-        talent=talent,
-        skills=skills,
-        source_dir=source_dir,
-        is_synthetic=is_synthetic,
+        talent=db.run_query("SELECT * FROM mart.talent_market"),
+        skills=db.run_query("SELECT * FROM mart.skills"),
+        is_synthetic=is_synthetic(),
     )
+
+
+def log_usage(
+    view_name: str,
+    soc_code: str | None = None,
+    area_code: str | None = None,
+    session_id: str | None = None,
+) -> None:
+    """Record that someone looked at something.
+
+    Fire-and-forget: a failed write must never break the view a user is
+    looking at. Instrumentation that can take the app down is worse than no
+    instrumentation.
+    """
+    with contextlib.suppress(Exception):
+        db.execute(
+            """
+            INSERT INTO mart.usage_log (view_name, soc_code, area_code, session_id)
+            VALUES (%(view_name)s, %(soc_code)s, %(area_code)s, %(session_id)s)
+            """,
+            {
+                "view_name": view_name,
+                "soc_code": soc_code,
+                "area_code": area_code,
+                "session_id": session_id,
+            },
+        )

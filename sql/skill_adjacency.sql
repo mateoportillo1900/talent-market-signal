@@ -43,12 +43,12 @@
 --   the measure, not of the fixture; the exact numbers will move.)
 --
 -- Parameters
---   $soc_code   the occupation to find neighbours for
---   $limit      how many neighbours to return
+--   %(soc_code)s   the occupation to find neighbours for
+--   %(limit)s      how many neighbours to return
 --
 -- Portability
---   ANSI SQL throughout. `string_agg` is `listagg` on Trino; everything else
---   is unchanged.
+--   ANSI SQL throughout. `string_agg` is `listagg` on Trino and
+--   `array_join(collect_list(...))` on Spark SQL; everything else is unchanged.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 WITH skill_means AS (
@@ -57,7 +57,7 @@ WITH skill_means AS (
     SELECT
         skill,
         AVG(importance) AS mean_importance
-    FROM skills
+    FROM mart.skills
     GROUP BY skill
 ),
 
@@ -68,7 +68,7 @@ centered AS (
         s.skill,
         s.importance,
         s.importance - m.mean_importance AS deviation
-    FROM skills s
+    FROM mart.skills s
     JOIN skill_means m ON s.skill = m.skill
 ),
 
@@ -85,11 +85,11 @@ norms AS (
 target AS (
     SELECT skill, importance, deviation
     FROM centered
-    WHERE soc_code = $soc_code
+    WHERE soc_code = %(soc_code)s
 ),
 
 target_norm AS (
-    SELECT norm FROM norms WHERE soc_code = $soc_code
+    SELECT norm FROM norms WHERE soc_code = %(soc_code)s
 ),
 
 pairwise AS (
@@ -111,7 +111,7 @@ pairwise AS (
             AS shared_strength_count
     FROM centered c
     JOIN target t ON c.skill = t.skill
-    WHERE c.soc_code <> $soc_code
+    WHERE c.soc_code <> %(soc_code)s
     GROUP BY c.soc_code
 )
 
@@ -129,4 +129,4 @@ JOIN norms n       ON p.soc_code = n.soc_code
 CROSS JOIN target_norm tn
 WHERE p.dot_product / NULLIF(n.norm * tn.norm, 0) IS NOT NULL
 ORDER BY similarity DESC
-LIMIT $limit
+LIMIT %(limit)s

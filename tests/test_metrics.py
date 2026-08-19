@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from tms import data, metrics, query, schema
+from tms import data, db, metrics, query, schema
 
 SOC = "15-1252"  # Software Developers — present in every metro in both datasets
 
@@ -232,26 +232,27 @@ def test_centering_discriminates_better_than_raw_cosine() -> None:
     a narrow band. If a future edit drops the mean-centering, this fails.
     """
     centered = metrics.skill_adjacency(SOC, limit=100)["similarity"]
-    con = query.connect()
-    raw = con.execute(
+    raw = db.run_query(
         """
-        WITH target AS (SELECT skill, importance FROM skills WHERE soc_code = $soc),
+        WITH target AS (
+            SELECT skill, importance FROM mart.skills WHERE soc_code = %(soc)s
+        ),
         norms AS (
             SELECT soc_code, SQRT(SUM(importance * importance)) AS n
-            FROM skills GROUP BY soc_code
+            FROM mart.skills GROUP BY soc_code
         ),
-        target_norm AS (SELECT n FROM norms WHERE soc_code = $soc),
+        target_norm AS (SELECT n FROM norms WHERE soc_code = %(soc)s),
         pairs AS (
             SELECT s.soc_code, SUM(s.importance * t.importance) AS dp
-            FROM skills s JOIN target t ON s.skill = t.skill
-            WHERE s.soc_code <> $soc
+            FROM mart.skills s JOIN target t ON s.skill = t.skill
+            WHERE s.soc_code <> %(soc)s
             GROUP BY s.soc_code
         )
         SELECT p.dp / (n.n * tn.n) AS similarity
         FROM pairs p JOIN norms n ON p.soc_code = n.soc_code CROSS JOIN target_norm tn
         """,
         {"soc": SOC},
-    ).df()["similarity"]
+    )["similarity"]
 
     centered_spread = centered.max() - centered.min()
     raw_spread = raw.max() - raw.min()

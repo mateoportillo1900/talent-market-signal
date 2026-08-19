@@ -21,18 +21,27 @@
 --   can say out loud to a customer.
 --
 -- Parameters
---   $soc_code        occupation to score
---   $min_employment  floor below which BLS estimates are too noisy to rank
---   $w_scarcity, $w_wage_premium, $w_growth   weights, must sum to 1.0
+--   %(soc_code)s        occupation to score
+--   %(min_employment)s  floor below which BLS estimates are too noisy to rank
+--   %(w_scarcity)s, %(w_wage_premium)s, %(w_growth)s   weights, must sum to 1.0
 --
 -- Portability
---   ANSI window functions and CTEs only. Runs unchanged on Trino and Spark SQL
---   against the same logical tables; DuckDB is just what is convenient locally.
+--   ANSI window functions and CTEs only. Runs unchanged on Trino, Spark SQL,
+--   Snowflake or BigQuery against the same logical tables; Postgres is just
+--   what is convenient to host for free.
 --
 -- Performance
---   The `soc_code` filter in `scoped` is pushed down into the Parquet reader,
---   so a scan for one occupation touches ~40 of ~2,500 row groups. Everything
---   after that operates on those rows only. See scripts/explain_queries.py.
+--   `scoped` narrows to one occupation first, and `talent_market_soc_idx`
+--   covers that predicate. Verified plan (scripts/explain_queries.py):
+--
+--     Bitmap Heap Scan on talent_market  (rows=40)
+--       Recheck Cond: (soc_code = '15-1252')
+--       ->  Bitmap Index Scan on talent_market_soc_idx
+--             Index Cond: (soc_code = '15-1252')
+--
+--   An index seek to 40 rows, not a scan of all 2,520. Every CTE downstream
+--   inherits that narrowing, so the window functions sort 40 rows rather than
+--   the whole table.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 WITH scoped AS (
@@ -55,9 +64,9 @@ WITH scoped AS (
         wage_p75,
         wage_p90,
         national_wage_p50
-    FROM talent
-    WHERE soc_code = $soc_code
-      AND employment >= $min_employment
+    FROM mart.talent_market
+    WHERE soc_code = %(soc_code)s
+      AND employment >= %(min_employment)s
 ),
 
 growth_fallback AS (
@@ -66,7 +75,7 @@ growth_fallback AS (
     -- silently shrink the ranking; imputing a national-average growth would
     -- overstate confidence. We impute this occupation's median growth across
     -- the metros that DO report, and carry a flag so the UI can mark the cell.
-    SELECT median(supply_growth_3y) AS median_growth
+    SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY supply_growth_3y) AS median_growth
     FROM scoped
     WHERE supply_growth_3y IS NOT NULL
 ),
@@ -76,7 +85,7 @@ signals AS (
         s.*,
         COALESCE(s.supply_growth_3y, g.median_growth) AS growth_filled,
         s.supply_growth_3y IS NULL                    AS growth_imputed,
-        -- Wage premium as a fraction: 0.18 means this metro's median sits 18%
+        -- Wage premium as a fraction: 0.18 means this metro's median sits 18%%
         -- above the national median for the occupation. NULLIF guards the
         -- divide; a zero national median means a broken build, not a free role.
         (s.wage_p50 / NULLIF(s.national_wage_p50, 0)) - 1.0 AS wage_premium,
@@ -130,14 +139,14 @@ SELECT
     growth_score,
     -- The composite. Bounded to [0, 100] by construction: each component is a
     -- percentile rank in [0, 100] and the weights sum to 1.
-    ( $w_scarcity     * scarcity_score
-    + $w_wage_premium * wage_premium_score
-    + $w_growth       * growth_score
+    ( %(w_scarcity)s     * scarcity_score
+    + %(w_wage_premium)s * wage_premium_score
+    + %(w_growth)s       * growth_score
     ) AS competition_index,
     RANK() OVER (
-        ORDER BY ( $w_scarcity     * scarcity_score
-                 + $w_wage_premium * wage_premium_score
-                 + $w_growth       * growth_score ) DESC
+        ORDER BY ( %(w_scarcity)s     * scarcity_score
+                 + %(w_wage_premium)s * wage_premium_score
+                 + %(w_growth)s       * growth_score ) DESC
     ) AS difficulty_rank
 FROM ranked
 ORDER BY competition_index DESC

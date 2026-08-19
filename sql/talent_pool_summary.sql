@@ -12,12 +12,12 @@
 --
 -- Every metro-level figure is returned alongside its national counterpart,
 -- because a number without a comparison is not an insight. "$164,000" says
--- nothing. "$164,000, which is 27% above the national median for this role"
+-- nothing. "$164,000, which is 27%% above the national median for this role"
 -- is a sentence an account exec can build a conversation on.
 --
 -- Parameters
---   $soc_code   occupation
---   $area_code  metro
+--   %(soc_code)s   occupation
+--   %(area_code)s  metro
 -- ═══════════════════════════════════════════════════════════════════════════
 
 WITH national AS (
@@ -34,8 +34,8 @@ WITH national AS (
           / NULLIF(SUM(employment) FILTER (WHERE supply_growth_3y IS NOT NULL), 0)
                                                             AS national_growth_weighted,
         COUNT(*)                                            AS metros_reporting
-    FROM talent
-    WHERE soc_code = $soc_code
+    FROM mart.talent_market
+    WHERE soc_code = %(soc_code)s
 ),
 
 metro_rank AS (
@@ -48,8 +48,8 @@ metro_rank AS (
         RANK() OVER (ORDER BY wage_p50 DESC)    AS rank_by_wage,
         COUNT(*) OVER ()                        AS metros_total,
         PERCENT_RANK() OVER (ORDER BY wage_p50 ASC) AS wage_percentile_nationally
-    FROM talent
-    WHERE soc_code = $soc_code
+    FROM mart.talent_market
+    WHERE soc_code = %(soc_code)s
 )
 
 SELECT
@@ -90,8 +90,8 @@ SELECT
     r.wage_percentile_nationally,
     n.metros_reporting
 
-FROM talent t
+FROM mart.talent_market t
 CROSS JOIN national n
 JOIN metro_rank r ON t.area_code = r.area_code
-WHERE t.soc_code = $soc_code
-  AND t.area_code = $area_code
+WHERE t.soc_code = %(soc_code)s
+  AND t.area_code = %(area_code)s

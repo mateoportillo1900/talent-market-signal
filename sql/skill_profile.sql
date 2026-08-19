@@ -24,7 +24,7 @@
 -- the role apart).
 --
 -- Parameters
---   $soc_code   occupation to profile
+--   %(soc_code)s   occupation to profile
 -- ═══════════════════════════════════════════════════════════════════════════
 
 WITH skill_means AS (
@@ -32,7 +32,7 @@ WITH skill_means AS (
         skill,
         AVG(importance)    AS mean_importance,
         STDDEV(importance) AS sd_importance
-    FROM skills
+    FROM mart.skills
     GROUP BY skill
 )
 
@@ -47,7 +47,7 @@ SELECT
     -- occupations, which would otherwise divide by zero.
     (s.importance - m.mean_importance) / NULLIF(m.sd_importance, 0) AS z_score,
     PERCENT_RANK() OVER (ORDER BY s.importance ASC) AS within_role_rank
-FROM skills s
+FROM mart.skills s
 JOIN skill_means m ON s.skill = m.skill
-WHERE s.soc_code = $soc_code
+WHERE s.soc_code = %(soc_code)s
 ORDER BY s.importance DESC

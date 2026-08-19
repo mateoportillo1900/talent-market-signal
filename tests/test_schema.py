@@ -24,7 +24,7 @@ def dataset() -> data.Dataset:
 
 
 def test_talent_has_exactly_the_contracted_columns(dataset: data.Dataset) -> None:
-    assert list(dataset.talent.columns) == list(schema.TALENT_COLUMNS)
+    assert set(dataset.talent.columns) == set(schema.TALENT_COLUMNS)
 
 
 def test_talent_grain_is_unique(dataset: data.Dataset) -> None:
@@ -97,7 +97,7 @@ def test_national_median_is_constant_per_occupation(dataset: data.Dataset) -> No
 
 
 def test_skills_has_exactly_the_contracted_columns(dataset: data.Dataset) -> None:
-    assert list(dataset.skills.columns) == list(schema.SKILLS_COLUMNS)
+    assert set(dataset.skills.columns) == set(schema.SKILLS_COLUMNS)
 
 
 def test_skills_grain_is_unique(dataset: data.Dataset) -> None:
@@ -143,10 +143,6 @@ def test_dataset_reports_its_provenance(dataset: data.Dataset) -> None:
     assert dataset.provenance
     if dataset.is_synthetic:
         assert "SYNTHETIC" in dataset.provenance
-        assert (dataset.source_dir / "SYNTHETIC.txt").exists(), (
-            "a synthetic dataset must carry its marker file, so the app can "
-            "warn and a screenshot can never be mistaken for real data"
-        )
 
 
 def test_frames_are_not_empty(dataset: data.Dataset) -> None:

@@ -28,13 +28,37 @@ jobs:
         run: ruff format --check .
 
   # ── Tests ──────────────────────────────────────────────────────────────────
-  # The real dataset is a committed Parquet, but CI runs against a synthetic
-  # fixture instead. That keeps the test suite honest: it proves the metric
-  # logic and the report renderer work on *any* schema-conformant data, not
-  # just on the one snapshot that happens to be checked in.
+  # Runs the full pipeline against a throwaway Postgres: build the synthetic
+  # fixture, load it through the same script that loads real data, then run
+  # every contract and metric test against the result.
+  #
+  # Testing against synthetic data is the point, not a shortcut. A suite that
+  # only ever sees one checked-in snapshot cannot tell you whether the metric
+  # code is correct or merely tuned to that snapshot. And because the loader
+  # is the same one used in production, the CHECK constraints in the DDL are
+  # exercised on every push.
   test:
     name: Pytest
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: talent_market
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/talent_market
+
     steps:
       - uses: actions/checkout@v4
 
@@ -49,5 +73,11 @@ jobs:
       - name: Build synthetic fixture
         run: python scripts/make_fixture.py
 
+      - name: Load into Postgres
+        run: python scripts/load_to_postgres.py --fixture
+
       - name: Run tests
         run: pytest -q
+
+      - name: Show query plans
+        run: python scripts/explain_queries.py
