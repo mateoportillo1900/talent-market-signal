@@ -3,3 +3,5 @@ pytest
 ruff
 requests
 tqdm
+python-calamine
+openpyxl
