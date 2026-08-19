@@ -283,7 +283,8 @@ command that produced it.
 ## Getting started
 
 **Prerequisites:** Python 3.12, and any Postgres ([Neon](https://neon.tech)'s
-free tier is what this was built against).
+free tier is what this was built against — use the **direct** connection
+string, not the pooled one; [`.env.example`](.env.example) explains why).
 
 ```bash
 git clone https://github.com/mateoportillo1900/talent-market-signal.git
