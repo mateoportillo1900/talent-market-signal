@@ -1,6 +1,7 @@
 pandas
 numpy
 pyarrow
+duckdb
 plotly
 streamlit
 jinja2
