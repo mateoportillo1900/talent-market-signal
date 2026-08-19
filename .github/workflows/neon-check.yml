@@ -1,0 +1,94 @@
+name: Neon check
+
+# Manual only. This is the one workflow that talks to a real database, so it
+# runs when someone asks for it rather than on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      load_fixture:
+        description: "Load the synthetic fixture into Neon"
+        type: boolean
+        default: true
+      run_tests:
+        description: "Run the full test suite against Neon"
+        type: boolean
+        default: true
+
+jobs:
+  neon:
+    name: Verify Neon
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Check the secret is set
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set."
+            echo "Add it at Settings -> Secrets and variables -> Actions -> New repository secret"
+            exit 1
+          fi
+          # Never print the URL. This repo is public, so workflow logs are too.
+          # GitHub masks registered secrets, but the safe habit is to not echo
+          # them at all rather than to rely on the masking.
+          echo "DATABASE_URL is set (value withheld)"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Connect
+        run: |
+          python - <<'PY'
+          import sys
+          from tms import db
+
+          try:
+              version = db.run_query("SELECT version() AS v").iloc[0]["v"]
+          except Exception as exc:
+              print(f"::error::Could not connect — {type(exc).__name__}")
+              print(str(exc)[:500])
+              sys.exit(1)
+
+          print(f"connected: {version[:70]}")
+
+          # Confirm the pooled endpoint was not used. PgBouncer in transaction
+          # mode breaks psycopg's automatic statement preparation, and the
+          # failure appears only after a query has repeated a few times — so it
+          # looks fine right up until it doesn't.
+          host = db.run_query("SELECT inet_server_addr() IS NOT NULL AS direct").iloc[0]
+          print(f"server reachable: {bool(host['direct'])}")
+          PY
+
+      - name: Load the fixture
+        if: ${{ inputs.load_fixture }}
+        run: |
+          python scripts/make_fixture.py
+          python scripts/load_to_postgres.py --fixture
+
+      - name: Run the test suite against Neon
+        if: ${{ inputs.run_tests }}
+        run: pytest -q
+
+      - name: Query plans on Neon
+        if: ${{ inputs.run_tests }}
+        run: python scripts/explain_queries.py competition_index
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Neon check"
+            echo ""
+            echo "If every step above is green, the app will run against this"
+            echo "database. Next: deploy to Streamlit Cloud with the same"
+            echo "\`DATABASE_URL\` as a secret."
+          } >> "$GITHUB_STEP_SUMMARY"
