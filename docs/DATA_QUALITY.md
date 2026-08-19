@@ -139,6 +139,34 @@ Naming the gaps is part of the governance:
 
 ---
 
+## A constraint worth knowing: BLS blocks datacenter IPs
+
+`scripts/build_dataset.py` cannot run on a cloud runner. Measured, not
+assumed — from a single GitHub Actions job, in the same second:
+
+```
+[HTTP 403] OES metro (current)   (GET)
+[HTTP 403] OES metro (prior)     (GET)
+[HTTP 403] OES national          (GET)
+[    OK ] O*NET database  13 MB  (HEAD)
+```
+
+O\*NET served fine from the same machine. BLS refused every request
+regardless of method or User-Agent — a browser User-Agent and a ranged GET
+were both tried and both refused.
+
+403 is refusal, not absence. The files exist; BLS declines requests from
+datacenter address ranges, which rules out GitHub Actions, Codespaces and
+every hosted notebook. **The build has to run from a residential or office
+connection.**
+
+`--check` now recognises this signature — some hosts 403 while others serve
+from the same machine — and says so, rather than leaving the next person to
+hunt for a URL that never moved.
+
+The load step is unaffected: once the Parquet exists, anything that can
+reach Postgres can load it.
+
 ## Incident response
 
 If a wrong number reaches a customer:

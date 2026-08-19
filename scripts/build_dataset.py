@@ -123,6 +123,10 @@ def check_urls() -> int:
         ("BLS projections (optional)", sources.EP_URL),
     ]
     failures = 0
+    blocked_hosts: set[str] = set()
+    forbidden_hosts: set[str] = set()
+    reachable_hosts: set[str] = set()
+
     for label, url in targets:
         try:
             # HEAD first — it is the cheapest question. But a HEAD 403 does not
@@ -161,6 +165,11 @@ def check_urls() -> int:
             except ValueError:
                 size_note = ""
 
+            host = url.split("/")[2]
+            (reachable_hosts if ok else blocked_hosts).add(host)
+            if response.status_code == 403:
+                forbidden_hosts.add(host)
+
             status = "OK " if ok else f"HTTP {response.status_code}"
             if not ok and "optional" not in label:
                 failures += 1
@@ -169,6 +178,21 @@ def check_urls() -> int:
             if "optional" not in label:
                 failures += 1
             print(f"  [ FAILED] {label:<28}  {exc}")
+
+    # One host refusing with 403 while another serves happily, from the same
+    # machine at the same moment, is not a URL problem. It is that host
+    # declining this client — and the usual reason is the IP range.
+    if forbidden_hosts and reachable_hosts:
+        print()
+        print("  Note: " + ", ".join(sorted(forbidden_hosts)) + " returned 403")
+        print("  while " + ", ".join(sorted(reachable_hosts)) + " served fine")
+        print("  from this same machine.")
+        print()
+        print("  403 is refusal, not absence — the files are there. BLS blocks")
+        print("  datacenter IP ranges, so this fails on any cloud runner")
+        print("  (GitHub Actions, Codespaces, Streamlit Cloud) and works from")
+        print("  a home or office connection. Run the build locally.")
+
     return failures
 
 

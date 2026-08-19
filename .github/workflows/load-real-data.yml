@@ -1,10 +1,15 @@
 name: Load real data
 
-# Downloads BLS and O*NET, builds the dataset, and loads it into Neon.
+# Loads a prebuilt dataset into Neon.
 #
-# This exists because the sources are large and the machine that needs them is
-# not always the machine that has bandwidth. A GitHub runner has both, so the
-# whole pipeline can run from a button rather than a terminal.
+# NOTE: this cannot build from BLS. Measured on this workflow — BLS returns 403
+# to every request from a GitHub runner while O*NET serves fine from the same
+# machine in the same second, with a browser User-Agent and a ranged GET both
+# tried. BLS blocks datacenter IP ranges, which rules out every cloud runner.
+# See docs/DATA_QUALITY.md.
+#
+# So the build step runs on a residential connection and the Parquet is
+# committed; this workflow loads it. The load half was never the problem.
 #
 # Manual only. It replaces the contents of the mart, so it should be a
 # deliberate act, not something a push triggers by accident.
@@ -64,6 +69,9 @@ jobs:
       # BLS reorganises its paths between vintages, and when it does, this step
       # names the URL that moved.
       - name: Verify the source URLs
+        # Informational when the dataset is already committed: BLS will 403
+        # from this runner regardless, and that does not block the load.
+        continue-on-error: true
         run: python scripts/build_dataset.py --check
 
       - name: Stop here if check-only
@@ -81,8 +89,15 @@ jobs:
           key: bls-onet-${{ hashFiles('scripts/sources.py') }}
           restore-keys: bls-onet-
 
+      # Only if the committed Parquet is absent. On a cloud runner this will
+      # fail at the BLS 403 and say why — see the note at the top of this file.
       - name: Build the dataset
-        run: python scripts/build_dataset.py
+        run: |
+          if [ -f data/talent_market.parquet ]; then
+            echo "Using the committed dataset — skipping the download."
+          else
+            python scripts/build_dataset.py
+          fi
 
       - name: Load into Neon
         run: python scripts/load_to_postgres.py
