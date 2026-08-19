@@ -1,0 +1,28 @@
+# Catches the things that would otherwise fail in CI, before the commit exists.
+# A red CI run costs a cycle and a reviewer's attention; a blocked commit costs
+# three seconds.
+#
+#   pip install pre-commit && pre-commit install
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=2000]
+      # The one that matters most here: this repo talks to a database, and a
+      # connection string is exactly the kind of thing that gets pasted into a
+      # file "just for a second" and then committed.
+      - id: detect-private-key
+      - id: check-merge-conflict

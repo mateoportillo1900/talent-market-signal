@@ -47,8 +47,8 @@ when real BLS data is loaded.</sub>
 <sub>TESTS<br/><sup>on real Postgres, every push</sup></sub>
 </td>
 <td align="center" width="25%">
-<h3>1,140</h3>
-<sub>LINES OF PROGRAM DOCS<br/><sup>PRD · GTM · measurement</sup></sub>
+<h3>7</h3>
+<sub>PROGRAM DOCUMENTS<br/><sup>PRD · GTM · measurement</sup></sub>
 </td>
 </tr>
 </table>
@@ -79,7 +79,7 @@ whether anyone can tell.
 So this project is deliberately two things.
 
 **A working data product** — a Postgres warehouse, eight commented SQL queries
-carrying every analytical measure, a five-view dashboard, and 120 tests aimed at
+carrying every analytical measure, a five-view dashboard, and 122 tests aimed at
 the failure mode that actually matters: a build that succeeds and produces a
 confident, wrong number.
 
@@ -299,7 +299,7 @@ string, not the pooled one; [`.env.example`](.env.example) explains why).
 ```bash
 git clone https://github.com/mateoportillo1900/talent-market-signal.git
 cd talent-market-signal
-pip install -r requirements-dev.txt
+make install
 
 cp .env.example .env          # paste your DATABASE_URL
 ```
@@ -307,25 +307,25 @@ cp .env.example .env          # paste your DATABASE_URL
 **Try it immediately, no downloads:**
 
 ```bash
-python scripts/make_fixture.py
-python scripts/load_to_postgres.py --fixture
-streamlit run app.py
+make fixture load run         # synthetic data, then the dashboard
 ```
 
 **Or build the real thing:**
 
 ```bash
-python scripts/build_dataset.py --check   # 10s — are the source URLs alive?
-python scripts/build_dataset.py           # ~10 min first run, then cached
-python scripts/load_to_postgres.py
-streamlit run app.py
+make check                    # 10s — are the source URLs alive?
+make build                    # ~10 min first run, then cached
+make load-real run
 ```
 
 ```bash
-pytest -q                            # 122 tests
-ruff check . && ruff format --check .
-python scripts/explain_queries.py    # query plans
+make test                     # 122 tests
+make lint
+make explain                  # query plans
 ```
+
+`make` on its own lists every target. There is no workflow hidden in a
+maintainer's shell history.
 
 Run `--check` first. If BLS has moved a download path — they reorganise between
 vintages — you get a named URL and one file to edit, rather than a stack trace
