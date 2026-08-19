@@ -17,6 +17,15 @@ role, what do we do?"* — and it answers it in a sentence someone can repeat.
 
 **[→ The PRD](docs/PRD.md)** &nbsp;·&nbsp; **[→ How it's measured](docs/MEASUREMENT.md)** &nbsp;·&nbsp; **[→ Methodology](docs/METHODOLOGY.md)**
 
+<br/>
+
+![The Talent Pool view](docs/img/talent-pool.png)
+
+<sub>Every view pairs its charts with a generated plain-English takeaway — the
+end reader is a customer who never opens the tool. Running here on the
+synthetic test fixture, which is why the banner is showing; it disappears
+when real BLS data is loaded.</sub>
+
 </div>
 
 ---
