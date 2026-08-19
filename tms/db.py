@@ -14,11 +14,15 @@ from pytest, where there is no Streamlit runtime.
 
 from __future__ import annotations
 
+import contextlib
 import os
+import threading
+from collections.abc import Iterator
 
 import pandas as pd
 import psycopg
 from dotenv import load_dotenv
+from psycopg_pool import ConnectionPool
 
 load_dotenv()
 
@@ -58,14 +62,73 @@ def database_url() -> str:
     return url
 
 
-def connect() -> psycopg.Connection:
-    """Open a connection. Callers are responsible for closing it.
+# Pool sizing. Neon's free tier caps concurrent connections, and Streamlit
+# re-runs the whole script on every widget interaction — so a small reused pool
+# matters far more here than it would against a local database.
+POOL_MIN = 0  # no eager connect, so importing this module never needs a network
+POOL_MAX = 3
+POOL_TIMEOUT = 20.0
 
-    Neon's free tier idles the compute after a few minutes, so the first query
-    of a session can take a couple of seconds to wake it. The timeout is set
-    generously enough to absorb that rather than surfacing a spurious error.
+# Serverless Postgres suspends compute when idle, which silently kills pooled
+# connections. Without a liveness check the first query after a quiet spell
+# fails with a closed-connection error that looks like a bug in the app.
+CONNECT_TIMEOUT = 15
+
+_pool: ConnectionPool | None = None
+_pool_lock = threading.Lock()
+
+
+def pool() -> ConnectionPool:
+    """The shared connection pool, created on first use.
+
+    Opening a fresh connection per query is fine against a local socket and
+    expensive against a hosted database — every query would pay a full TLS
+    handshake over the internet, and a free tier's connection cap is reachable
+    faster than it looks.
     """
-    return psycopg.connect(database_url(), connect_timeout=15)
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = ConnectionPool(
+                    conninfo=database_url(),
+                    min_size=POOL_MIN,
+                    max_size=POOL_MAX,
+                    timeout=POOL_TIMEOUT,
+                    kwargs={"connect_timeout": CONNECT_TIMEOUT},
+                    # Validate before handing a connection out. A serverless
+                    # database that idled will have dropped it; this discards
+                    # the dead one and opens a fresh one instead of failing
+                    # the query the user is waiting on.
+                    check=ConnectionPool.check_connection,
+                    # Explicit: psycopg_pool is changing this default, and an
+                    # unpinned default that flips under you is a silent
+                    # behaviour change on a routine dependency bump.
+                    open=True,
+                )
+    return _pool
+
+
+def reset_pool() -> None:
+    """Close and forget the pool. For tests that swap DATABASE_URL."""
+    global _pool
+    with _pool_lock:
+        if _pool is not None:
+            _pool.close()
+            _pool = None
+
+
+@contextlib.contextmanager
+def connect() -> Iterator[psycopg.Connection]:
+    """Borrow a pooled connection for the duration of the block.
+
+    The connection is returned to the pool on exit, and psycopg commits on a
+    clean exit or rolls back on an exception — so a caller wrapping several
+    statements in one `with` gets a single atomic transaction. That is what
+    `load_to_postgres.py` relies on.
+    """
+    with pool().connection() as conn:
+        yield conn
 
 
 def run_query(sql: str, params: dict | None = None) -> pd.DataFrame:

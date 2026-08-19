@@ -2,6 +2,7 @@ pandas
 numpy
 pyarrow
 psycopg[binary]
+psycopg_pool
 python-dotenv
 plotly
 streamlit
