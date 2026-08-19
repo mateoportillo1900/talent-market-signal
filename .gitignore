@@ -22,6 +22,24 @@ data/fixture/
 # Written at runtime as reports are generated. Ephemeral by design.
 data/report_log.csv
 
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# .env holds a live Postgres connection string with credentials in it. The
+# committed template is .env.example; the real file never leaves the machine.
+.env
+.env.*
+!.env.example
+*.pem
+secrets.toml
+.streamlit/secrets.toml
+
+# ── Local Claude context ─────────────────────────────────────────────────────
+# .claude/ is committed so CLAUDE.md conventions and shared settings travel
+# with the repo, but anything marked .local stays private: job notes, interview
+# prep, credentials guidance, working scratch.
+.claude/*.local.md
+.claude/settings.local.json
+.claude/scratch/
+
 # ── OS / editor ──────────────────────────────────────────────────────────────
 .DS_Store
 .vscode/
