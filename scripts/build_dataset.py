@@ -61,7 +61,7 @@ def fetch(url: str, destination: Path, force: bool = False) -> Path:
     try:
         response = requests.get(
             url,
-            headers={"User-Agent": sources.USER_AGENT},
+            headers=sources.REQUEST_HEADERS,
             timeout=sources.DOWNLOAD_TIMEOUT,
             stream=True,
         )
@@ -71,6 +71,15 @@ def fetch(url: str, destination: Path, force: bool = False) -> Path:
             "Check your connection. If BLS is up but this still fails, the "
             "path may have moved — the URLs live in scripts/sources.py."
         ) from exc
+
+    if response.status_code == 403:
+        raise SystemExit(
+            f"\n403 for {url}\n\n"
+            "The file exists; the server refused the request. BLS blocks some\n"
+            "automated clients and some datacenter IP ranges. If this happens\n"
+            "on a CI runner but works from a laptop, that is the IP range —\n"
+            "run the build locally instead."
+        )
 
     if response.status_code == 404:
         raise SystemExit(
@@ -116,18 +125,46 @@ def check_urls() -> int:
     failures = 0
     for label, url in targets:
         try:
+            # HEAD first — it is the cheapest question. But a HEAD 403 does not
+            # mean the file is unreachable: plenty of servers, BLS included,
+            # refuse HEAD while serving GET perfectly well. So a refusal falls
+            # through to a one-byte ranged GET, which is what the real
+            # download actually does.
             response = requests.head(
                 url,
-                headers={"User-Agent": sources.USER_AGENT},
+                headers=sources.REQUEST_HEADERS,
                 timeout=30,
                 allow_redirects=True,
             )
-            size = response.headers.get("content-length")
-            size_note = f"  {int(size) / 1_000_000:,.0f} MB" if size else ""
-            status = "OK " if response.ok else f"HTTP {response.status_code}"
-            if not response.ok and "optional" not in label:
+            method = "HEAD"
+
+            if response.status_code in (403, 405, 501):
+                response = requests.get(
+                    url,
+                    headers={**sources.REQUEST_HEADERS, "Range": "bytes=0-1"},
+                    timeout=30,
+                    allow_redirects=True,
+                    stream=True,
+                )
+                method = "GET"
+                # 206 Partial Content is the success case for a ranged request.
+                ok = response.ok or response.status_code == 206
+                response.close()
+            else:
+                ok = response.ok
+
+            size = response.headers.get("content-range", "").split("/")[-1] or (
+                response.headers.get("content-length")
+            )
+            try:
+                size_note = f"  {int(size) / 1_000_000:,.0f} MB" if size else ""
+            except ValueError:
+                size_note = ""
+
+            status = "OK " if ok else f"HTTP {response.status_code}"
+            if not ok and "optional" not in label:
                 failures += 1
-            print(f"  [{status:>7}] {label:<28}{size_note}")
+            print(f"  [{status:>7}] {label:<28}{size_note}  ({method})")
         except requests.RequestException as exc:
             if "optional" not in label:
                 failures += 1

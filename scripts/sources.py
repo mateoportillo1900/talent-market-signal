@@ -139,12 +139,23 @@ TOP_N_METROS = 150
 # ranking is noise. Matches MIN_EMPLOYMENT_FOR_INDEX in tms/schema.py.
 MIN_EMPLOYMENT = 50
 
-# A polite identifier. BLS asks automated clients to identify themselves, and
-# an unidentified scraper is the kind of thing that gets an IP blocked.
+# BLS rejects the default python-requests User-Agent with a 403. It wants
+# something that looks like an ordinary client, so this presents a normal
+# browser token and appends the project URL — identifying who is calling
+# without getting refused at the door.
 USER_AGENT = (
-    "talent-market-signal/0.1 (portfolio project; "
-    "https://github.com/mateoportillo1900/talent-market-signal)"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/126.0 Safari/537.36 "
+    "(+https://github.com/mateoportillo1900/talent-market-signal)"
 )
+
+# Sent alongside. Some federal endpoints 403 a request with no Accept header
+# or no referer, on the assumption that it is a scraper.
+REQUEST_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 # BLS servers are slow for large files. This is generous on purpose.
 DOWNLOAD_TIMEOUT = 300

@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege. These workflows only read the repository — none of them
+# comment, push, or open anything — so the token they get should not be able
+# to either. A public repo's default token permissions are broader than that,
+# and a workflow that cannot write is a workflow that cannot be turned into a
+# way to write.
+permissions:
+  contents: read
+
 jobs:
   # ── Lint + format ──────────────────────────────────────────────────────────
   lint:
