@@ -167,3 +167,31 @@ def available_metros(soc_code: str | None = None) -> pd.DataFrame:
         .sort_values("metro")
         .reset_index(drop=True)
     )
+
+
+# ── Program health ───────────────────────────────────────────────────────────
+
+
+def usage_summary(days: int = 30, top_n: int = 10) -> dict:
+    """Everything the Program Health view needs, in one call.
+
+    Returns a dict rather than a frame because the view genuinely needs four
+    differently-shaped results, and stitching them into one wide frame just to
+    return a single object would make each harder to read.
+    """
+    if days < 1:
+        raise ValueError(f"days must be at least 1, got {days}")
+
+    by_day = query.run("usage_by_day", days=days)
+    by_view = query.run("usage_by_view", days=days)
+    top_requests = query.run("usage_top_requests", days=days, limit=top_n)
+
+    return {
+        "by_day": by_day,
+        "by_view": by_view,
+        "top_requests": top_requests[
+            ["occupation", "occupation_group", "events", "sessions"]
+        ],
+        "sessions": int(by_view["sessions"].max()) if not by_view.empty else 0,
+        "occupations": int(len(top_requests)),
+    }

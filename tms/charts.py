@@ -94,20 +94,21 @@ def _base_layout(fig: go.Figure, height: int, title: str | None = None) -> go.Fi
     """Shared layout. Recessive grid and axes, generous margins, no chartjunk."""
     fig.update_layout(
         height=height,
-        title=(
-            dict(
-                text=title,
-                font=dict(size=15, color=TEXT_PRIMARY),
-                x=0,
-                xanchor="left",
-            )
-            if title
-            else None
+        # Plotly renders `title=None` as the literal string "undefined" above
+        # the plot, so an untitled chart gets an explicitly empty title.
+        title=dict(
+            text=title or "",
+            font=dict(size=15, color=TEXT_PRIMARY),
+            x=0,
+            xanchor="left",
         ),
         paper_bgcolor=SURFACE,
         plot_bgcolor=SURFACE,
         font=dict(family=FONT, size=12, color=TEXT_SECONDARY),
-        margin=dict(l=8, r=8, t=44 if title else 12, b=8),
+        # Bars label their values outside the mark, so the right margin has to
+        # leave room or the largest value — the one people look for — is the
+        # one that gets clipped.
+        margin=dict(l=8, r=72, t=44 if title else 12, b=8),
         hoverlabel=dict(
             bgcolor=SURFACE,
             bordercolor=GRID,
@@ -181,7 +182,8 @@ def competition_ranking(frame: pd.DataFrame, top_n: int = 15) -> go.Figure:
             ),
         )
     )
-    fig.update_xaxes(range=[0, max(100.0, hi * 1.15)], title="Competition Index")
+    # Pad past 100 so a metro scoring at the top still has room for its label.
+    fig.update_xaxes(range=[0, max(100.0, hi) * 1.12], title="Competition Index")
     return _base_layout(fig, height=42 * len(top) + 70)
 
 
@@ -260,7 +262,12 @@ def wage_delta(frame: pd.DataFrame, baseline_metro: str, top_n: int = 15) -> go.
     """
     cheapest = frame.head(top_n // 2)
     priciest = frame.tail(top_n - len(cheapest))
-    shown = pd.concat([cheapest, priciest]).drop_duplicates("area_code")
+    # The baseline is the thing every other bar is measured against. If it
+    # falls in the middle of the range it would be trimmed out by the head/tail
+    # slice, leaving a chart of differences with no visible zero reference.
+    baseline_row = frame[frame["is_baseline"]]
+    shown = pd.concat([cheapest, priciest, baseline_row])
+    shown = shown.drop_duplicates("area_code")
     shown = shown.sort_values("annual_delta_total", ascending=False)
 
     colours = [
@@ -299,10 +306,18 @@ def wage_delta(frame: pd.DataFrame, baseline_metro: str, top_n: int = 15) -> go.
         )
     )
     fig.add_vline(x=0, line_width=2, line_color=TEXT_MUTED)
+
+    # A margin alone does not save the extreme label: the longest bar reaches
+    # the axis maximum, so its outside label starts where the plot area ends.
+    # Padding the range gives the label somewhere to live inside the plot.
+    span = shown["annual_delta_total"]
+    low, high = float(span.min()), float(span.max())
+    pad = max(abs(low), abs(high)) * 0.22 or 1.0
     fig.update_xaxes(
         title=f"Annual cost vs {baseline_metro}",
         tickprefix="$",
         tickformat=",.0f",
+        range=[min(low, 0) - pad, max(high, 0) + pad],
     )
     return _base_layout(fig, height=38 * len(shown) + 80)
 

@@ -335,9 +335,83 @@ def test_every_sql_file_is_exercised_by_a_test() -> None:
         "skill_adjacency",
         "skill_profile",
         "talent_pool_summary",
+        "usage_by_day",
+        "usage_by_view",
+        "usage_top_requests",
     }
     on_disk = {p.stem for p in query.sql_files()}
     assert on_disk == exercised, (
         f"untested queries: {sorted(on_disk - exercised)}; "
         f"tests for missing queries: {sorted(exercised - on_disk)}"
     )
+
+
+# ── Chart construction ───────────────────────────────────────────────────────
+# These build the figures rather than inspecting pixels. They catch the class
+# of bug that unit tests on the data cannot: a chart that drops a row it must
+# show, or a layout that renders a placeholder string where a title should be.
+
+
+def test_wage_delta_always_includes_the_baseline(baseline_area) -> None:
+    """The zero reference must survive the head/tail trim.
+
+    wage_delta shows only the cheapest and priciest metros. If the baseline
+    sits mid-range it would be sliced out, leaving a chart of differences with
+    nothing visibly marking what they are differences *from*.
+    """
+    from tms import charts
+
+    arb = metrics.wage_arbitrage(SOC, baseline_area, headcount=20)
+    baseline_metro = str(arb.loc[arb["is_baseline"], "metro"].iloc[0])
+
+    fig = charts.wage_delta(arb, baseline_metro, top_n=6)
+    plotted = list(fig.data[0].y)
+    assert baseline_metro in plotted, (
+        f"baseline {baseline_metro!r} was trimmed out of the chart"
+    )
+
+
+def test_untitled_charts_do_not_render_a_placeholder_title(baseline_area) -> None:
+    """Plotly turns `title=None` into the literal string "undefined".
+
+    It renders above the plot and looks like a bug to anyone reading a
+    screenshot, which is exactly where a portfolio chart gets read.
+    """
+    from tms import charts
+
+    index_frame = metrics.competition_index(SOC)
+    fig = charts.competition_ranking(index_frame)
+    assert fig.layout.title.text == "", (
+        f"expected an empty title, got {fig.layout.title.text!r}"
+    )
+
+
+def test_charts_leave_room_for_outside_labels() -> None:
+    """Bar values are drawn outside the mark; a tight right margin clips them."""
+    from tms import charts
+
+    fig = charts.competition_ranking(metrics.competition_index(SOC))
+    assert fig.layout.margin.r >= 60, (
+        "right margin too small — the largest value label will be clipped"
+    )
+
+
+def test_bar_charts_pad_the_axis_past_the_longest_bar(baseline_area) -> None:
+    """An outside label on a bar that reaches the axis max gets clipped.
+
+    Margin alone does not fix it — the label starts where the plot area ends.
+    The axis range has to extend past the data.
+    """
+    from tms import charts
+
+    arb = metrics.wage_arbitrage(SOC, baseline_area, headcount=20)
+    baseline_metro = str(arb.loc[arb["is_baseline"], "metro"].iloc[0])
+    fig = charts.wage_delta(arb, baseline_metro)
+
+    lo, hi = fig.layout.xaxis.range
+    plotted = list(fig.data[0].x)
+    assert hi > max(plotted), "no headroom above the longest positive bar"
+    assert lo < min(plotted), "no headroom below the longest negative bar"
+
+    ranking = charts.competition_ranking(metrics.competition_index(SOC))
+    assert ranking.layout.xaxis.range[1] > max(ranking.data[0].x)
