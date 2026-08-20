@@ -34,6 +34,33 @@ talent-solutions audience and would make the picker unusable.
 Three signals, each converted to a 0–100 percentile rank across the metros in
 scope, then combined:
 
+<!-- diagram: competition-index -->
+```mermaid
+flowchart LR
+    E["Employment per 1,000<br/>metro jobs"]
+    W["Metro median wage ÷<br/>national median − 1"]
+    G["Three-year change in<br/>local employment"]
+
+    S["Scarcity<br/>percentile rank 0–100"]
+    WP["Wage premium<br/>percentile rank 0–100"]
+    GR["Growth<br/>percentile rank 0–100"]
+
+    IDX["Talent Competition Index<br/>0–100"]
+
+    E -->|"inverted — thin supply scores high"| S
+    W --> WP
+    G -->|"inverted — shrinking scores high"| GR
+
+    S -->|"× 0.50"| IDX
+    WP -->|"× 0.30"| IDX
+    GR -->|"× 0.20"| IDX
+
+    style IDX fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+Every component becomes a percentile rank *before* the weights are applied, which
+is what makes the composite bounded by construction rather than by clamping.
+
 | Component | Weight | Direction | What it captures |
 |---|---|---|---|
 | Scarcity | **0.50** | Thin supply → high | Employment per 1,000 metro jobs, inverted |
@@ -70,7 +97,7 @@ metro boundaries.
 useful shorthand or a black box, and the difference is whether the reader can
 take it apart. If the field consistently drills into components rather than
 quoting the headline, the composite is not earning its place — that is question 2
-in `PRD.md`.
+in [`PRD.md`](./PRD.md).
 
 ### Bounds
 
@@ -125,6 +152,29 @@ the reader can disagree with it.
 reskill from?
 
 **Mean-centred cosine similarity** over O\*NET importance vectors.
+
+<!-- diagram: skill-adjacency -->
+```mermaid
+flowchart LR
+    ON["O*NET importance<br/>1–5, strictly positive"]
+    SUB["Subtract each skill's<br/>cross-occupation mean"]
+    DEV["Deviation vector<br/>per occupation"]
+    COS["Cosine similarity between<br/>deviation vectors"]
+    OUT["Nearest occupations, ranked"]
+
+    RAW["Raw cosine<br/>0.8641 – 0.9775<br/>spread 0.1134"]
+    CEN["Mean-centred<br/>−0.4646 – 0.6964<br/>spread 1.1610"]
+
+    ON --> SUB --> DEV --> COS --> OUT
+    ON -.->|"skipping the centring step"| RAW
+    COS -.-> CEN
+
+    style CEN fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+The centring step is the whole decision. Without it the measure still runs, still
+returns a ranked list, and still looks authoritative — it is simply not
+discriminating enough for the ranking to mean anything.
 
 ### Why centring is not optional
 
@@ -222,7 +272,7 @@ bucket is mixing populations.
 
 **There is no company dimension.** Public data cannot say which employers
 compete for a pool. This is the most-requested thing the tool cannot do, and the
-first item on the roadmap in `PRD.md`.
+first item on the roadmap in [`PRD.md`](./PRD.md).
 
 **Nothing here is causal.** These are descriptive market statistics. A metro
 being expensive and a metro being hard to hire in are correlated; neither causes
@@ -231,3 +281,7 @@ the other in any way this data can establish.
 **Adjacency is about skills, not credentials.** Two occupations sharing a skill
 profile does not mean a licensing body, a hiring manager, or a candidate agrees
 they are substitutable.
+
+---
+
+<sub>**[← All documentation](./README.md)** · [Project README](../README.md) · Related: [Data quality](./DATA_QUALITY.md) · [PRD](./PRD.md)</sub>

@@ -25,6 +25,45 @@ credibility it needs to be believed about anything else.
 So the measurement plan below is built in **three tiers of confidence**, and
 each number is reported at the tier it actually earns.
 
+<!-- diagram: three-tiers-of-confidence -->
+```mermaid
+flowchart LR
+    subgraph TIER1["Tier 1 · Adoption — cleanly measurable"]
+        direction TB
+        AW["Aware<br/>received enablement"]
+        AC["Activated<br/>opened it once"]
+        RT["Returned<br/>2nd session, 24h+ later"]
+        HB["Habitual<br/>used in 3+ distinct weeks"]
+        AW --> AC --> RT --> HB
+    end
+
+    subgraph TIER2["Tier 2 · Behaviour change — measurable with effort"]
+        direction TB
+        NOTE["Referenced in<br/>opportunity notes"]
+        DECK["Survived into<br/>a QBR deck"]
+        ASK["Customer asked<br/>a follow-up question"]
+    end
+
+    subgraph TIER3["Tier 3 · Business outcomes — not cleanly attributable"]
+        direction TB
+        WIN["Win rate"]
+        REN["Renewal rate"]
+        EXP["Expansion revenue"]
+    end
+
+    TIER1 ==> TIER2 ==> TIER3
+
+    style RT fill:#0A66C2,stroke:#0A66C2,color:#fff
+    style ASK fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+Confidence falls left to right; business relevance rises. That trade is the
+whole problem — the numbers an executive most wants are the ones this can least
+defend. The two highlighted nodes are the strongest honest signal in each tier:
+**Returned**, because curiosity buys one visit and only usefulness buys the
+second, and **the customer's follow-up question**, because it is the only
+evidence that the substance reached the person who was never in the tool.
+
 ---
 
 ## Tier 1 — Adoption. Cleanly measurable.
@@ -153,3 +192,7 @@ It reports adoption and nothing else, and the tab says so:
 Building an impressive-looking impact dashboard on top of tier-3 data would be
 the single most misleading thing in this project. The tab shows what is honestly
 measurable and points here for the rest.
+
+---
+
+<sub>**[← All documentation](./README.md)** · [Project README](../README.md) · Related: [PRD](./PRD.md) · [Rollout & enablement](./GTM_ENABLEMENT.md)</sub>

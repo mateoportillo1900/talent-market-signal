@@ -40,6 +40,17 @@ secrets.toml
 .claude/settings.local.json
 .claude/scratch/
 
+# ── Exported diagrams ────────────────────────────────────────────────────────
+# docs/images/ holds PNGs rendered from the Mermaid blocks in the docs by
+# `make diagrams`. They are derived, not authored: GitHub renders the Mermaid
+# source inline, so nothing in the repository depends on them. Committing them
+# would mean a binary that silently goes stale whenever a diagram is edited —
+# regenerate on demand when a diagram needs to leave GitHub for a slide or a post.
+#
+# docs/img/ is different and IS committed: those are dashboard screenshots,
+# captured by hand from a running app and not reproducible from source.
+docs/images/
+
 # ── OS / editor ──────────────────────────────────────────────────────────────
 .DS_Store
 .vscode/

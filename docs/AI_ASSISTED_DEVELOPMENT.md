@@ -109,6 +109,46 @@ Found only by driving the running app in a browser:
 What the five errors have in common: none would have been caught by reading the
 code, and all were caught by making the code produce an observable result.
 
+<!-- diagram: ai-validation-loop -->
+```mermaid
+flowchart TB
+    OUT["Assistant output<br/>code, comment, or claim"]
+    KIND{"What kind of<br/>claim is it?"}
+
+    NUM["A stated number"]
+    BEH["A claim about behaviour"]
+    TRN["A transformation"]
+    VIS["Anything visual"]
+    SEN["A generated sentence"]
+
+    RC["Recompute it"]
+    RUN["Run it — EXPLAIN for plans,<br/>the app itself for rendering"]
+    DEG["Test the degraded path,<br/>not only the happy one"]
+    BROW["Open it in a browser"]
+    ASRT["Assert the direction words<br/>agree with the sign of the data"]
+
+    CHECK{"Does the observed<br/>result match the claim?"}
+
+    SHIP["Ships"]
+    FIX["Rewrite it around<br/>the measured result"]
+
+    OUT --> KIND
+    KIND --> NUM --> RC --> CHECK
+    KIND --> BEH --> RUN --> CHECK
+    KIND --> TRN --> DEG --> CHECK
+    KIND --> VIS --> BROW --> CHECK
+    KIND --> SEN --> ASRT --> CHECK
+
+    CHECK -->|"yes"| SHIP
+    CHECK -->|"no"| FIX
+    FIX --> OUT
+
+    style CHECK fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+Note what is missing: there is no path from *"the explanation reads well"* to
+**Ships**. All five errors below read well. Four of them passed every unit test.
+
 | Category | How it is verified |
 |---|---|
 | A stated number | Recompute it. Every figure in a comment traces to a command that produced it |
@@ -149,3 +189,7 @@ The net is a clear win, but the shape matters: **the acceleration is in
 production, and the discipline has to be in verification.** Someone who takes
 the speed-up without the verification tax ships faster and is wrong more often,
 which in an insights function is strictly worse than being slow.
+
+---
+
+<sub>**[← All documentation](./README.md)** · [Project README](../README.md) · Related: [Data quality](./DATA_QUALITY.md) · [Methodology](./METHODOLOGY.md)</sub>

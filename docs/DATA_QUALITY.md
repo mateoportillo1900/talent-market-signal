@@ -30,6 +30,55 @@ mart that is wrong — you can explain a delay; you cannot un-say a number.
 
 Three layers, deliberately. Each catches things the others cannot.
 
+<!-- diagram: data-quality-layers -->
+```mermaid
+flowchart TB
+    SRC["BLS OES · O*NET<br/>downloaded source files"]
+
+    subgraph L1["Layer 1 · Parse time — scripts/build_dataset.py"]
+        direction TB
+        P1["Expected columns present"]
+        P2["Suppression markers become null,<br/>never zero"]
+        P3["Wage percentiles monotonic"]
+        P4["Cross-industry, detailed SOC only"]
+        P5["Prior-vintage match rate"]
+    end
+
+    PARQ["Parquet"]
+
+    subgraph L2["Layer 2 · Load time — sql/ddl/schema.sql"]
+        direction TB
+        D1["wage_percentiles_ordered"]
+        D2["wages_positive"]
+        D3["employment_positive"]
+        D4["importance_on_onet_scale"]
+    end
+
+    MART[("mart schema")]
+
+    subgraph L3["Layer 3 · Test time — tests/"]
+        direction TB
+        T1["Contract drift<br/>grain, nulls, ranges"]
+        T2["Silent wrongness<br/>sign flips, wrong anchors,<br/>dead controls"]
+        T3["Narrative agreement<br/>words match the sign"]
+    end
+
+    STOP["Load rejected.<br/>Previous mart stays live<br/>and queryable"]
+
+    SRC --> L1 --> PARQ --> L2 --> MART --> L3
+    L1 -->|"fatal"| STOP
+    L2 -->|"fatal — the whole load is<br/>one transaction, so it rolls back"| STOP
+    L3 -->|"fatal"| STOP
+
+    style STOP fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+Each layer catches what the one before it structurally cannot. Parse-time checks
+can name the cause because they sit next to the source file. Database constraints
+hold no matter what wrote the data — including a future loader nobody has written
+yet. Tests catch the errors that are *arithmetically valid*: a scarcity score
+with a flipped sign violates no constraint and passes every parse check.
+
 ### 1. Parse time — `scripts/build_dataset.py`
 
 Nearest to the source, so failures name the cause.
@@ -179,6 +228,10 @@ If a wrong number reaches a customer:
 4. **Say so in the monthly report.** A quietly-fixed error is a trust liability
    the second time it is discovered.
 
-`MEASUREMENT.md` lists corrections as a **zero-tolerance guardrail**. Not because
+[`MEASUREMENT.md`](./MEASUREMENT.md) lists corrections as a **zero-tolerance guardrail**. Not because
 mistakes are unforgivable, but because the field will correctly stop using a tool
 that has embarrassed them once, and no amount of adoption work recovers that.
+
+---
+
+<sub>**[← All documentation](./README.md)** · [Project README](../README.md) · Related: [Methodology](./METHODOLOGY.md) · [AI-assisted development](./AI_ASSISTED_DEVELOPMENT.md)</sub>

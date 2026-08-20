@@ -5,7 +5,7 @@
 # documentation, and they cannot drift from what actually runs.
 
 .DEFAULT_GOAL := help
-.PHONY: help install fixture load load-real build check test lint format run explain clean
+.PHONY: help install fixture load load-real build check test lint format run explain diagrams clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -42,6 +42,9 @@ format:  ## Apply formatting
 
 explain:  ## Print the query plan for every SQL file
 	python scripts/explain_queries.py
+
+diagrams:  ## Export the docs' Mermaid diagrams as PNGs
+	python scripts/export_diagrams.py
 
 run:  ## Start the dashboard
 	streamlit run app.py

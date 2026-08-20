@@ -38,7 +38,47 @@ deliberate mix:
 
 **Stage it by region.** Not for logistics — so that the untouched regions form a
 natural comparison group. That decision has to be made now, before launch,
-because it cannot be recovered afterwards. See `MEASUREMENT.md`.
+because it cannot be recovered afterwards. See [`MEASUREMENT.md`](./MEASUREMENT.md).
+
+<!-- diagram: pilot-and-gate -->
+```mermaid
+flowchart TB
+    START["12–15 AEs<br/>4–5 high performers · 4–5 mid-tier<br/>2–3 sceptics · 2+ segments"]
+
+    W1["Week 1<br/>45-minute live session<br/>every AE runs a real account"]
+    W2["Week 2<br/>office hours<br/>shadow 3 customer calls"]
+    W3["Week 3<br/>collect friction<br/>ship two fixes, visibly"]
+    W4["Week 4<br/>structured debrief"]
+
+    GATE{"Gate<br/>all four must hold"}
+
+    C1["Return rate above 50%"]
+    C2["5+ insights reached<br/>a customer conversation"]
+    C3["Zero corrections issued"]
+    C4["At least one sceptic<br/>would keep using it"]
+
+    ITER["Another pilot iteration —<br/>not a wider rollout"]
+
+    WAVE1["Wave 1 · pilot region<br/>pilot AEs run the enablement"]
+    WAVE2["Wave 2 · second region<br/>with wave 1 fixes"]
+    WAVE3["Wave 3 · remaining GBO<br/>self-serve, office hours retained"]
+
+    START --> W1 --> W2 --> W3 --> W4 --> GATE
+    C1 -.-> GATE
+    C2 -.-> GATE
+    C3 -.-> GATE
+    C4 -.-> GATE
+    GATE -->|"pass"| WAVE1 --> WAVE2 --> WAVE3
+    GATE -->|"fail any one"| ITER
+    ITER -.->|"re-run"| W1
+
+    style W3 fill:#0A66C2,stroke:#0A66C2,color:#fff
+    style GATE fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+**The gate is drawn as a decision because it can genuinely fail.** A gate whose
+only outcome is "proceed" is a milestone wearing a diamond, and a tool rolled
+out on weak signal is far harder to withdraw than one that never launched.
 
 ### Week by week
 
@@ -57,7 +97,7 @@ collect it and do nothing.
 
 Proceed to phase 2 only if:
 
-- **Return rate > 50%** — see `MEASUREMENT.md` on why this and not activation
+- **Return rate > 50%** — see [`MEASUREMENT.md`](./MEASUREMENT.md) on why this and not activation
 - **At least 5 concrete instances** of an insight reaching a customer conversation
 - **Zero corrections** issued for a wrong number
 - **At least one sceptic** would keep using it
@@ -142,7 +182,7 @@ how a product becomes an artefact.
 ## What I would want from each partner
 
 Named here so the asks are explicit rather than assumed. Detail in
-`STAKEHOLDER_MAP.md`.
+[`STAKEHOLDER_MAP.md`](./STAKEHOLDER_MAP.md).
 
 - **Sales leadership** — name the pilot cohort, and say publicly that using it
   is expected. Optional tools get optional adoption.
@@ -153,3 +193,7 @@ Named here so the asks are explicit rather than assumed. Detail in
   senior has blessed is a composite nobody will defend for you.
 - **Legal** — confirm the public-data positioning before anything reaches a
   customer-facing deck.
+
+---
+
+<sub>**[← All documentation](./README.md)** · [Project README](../README.md) · Related: [Measurement](./MEASUREMENT.md) · [Stakeholders](./STAKEHOLDER_MAP.md)</sub>

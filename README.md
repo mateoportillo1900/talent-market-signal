@@ -15,7 +15,7 @@ A labour-market insights product built on public U.S. federal data. It answers
 the question a talent acquisition leader actually asks — *"we can't fill this
 role, what do we do?"* — and it answers it in a sentence someone can repeat.
 
-**[→ The PRD](docs/PRD.md)** &nbsp;·&nbsp; **[→ How it's measured](docs/MEASUREMENT.md)** &nbsp;·&nbsp; **[→ Methodology](docs/METHODOLOGY.md)**
+**[→ The PRD](docs/PRD.md)** &nbsp;·&nbsp; **[→ How it's measured](docs/MEASUREMENT.md)** &nbsp;·&nbsp; **[→ Methodology](docs/METHODOLOGY.md)** &nbsp;·&nbsp; **[→ All docs](docs/README.md)**
 
 <br/>
 
@@ -43,7 +43,7 @@ when real BLS data is loaded.</sub>
 <sub>SQL QUERIES<br/><sup>all analysis, zero pandas logic</sup></sub>
 </td>
 <td align="center" width="25%">
-<h3>122</h3>
+<h3>163</h3>
 <sub>TESTS<br/><sup>on real Postgres, every push</sup></sub>
 </td>
 <td align="center" width="25%">
@@ -79,9 +79,9 @@ whether anyone can tell.
 So this project is deliberately two things.
 
 **A working data product** — a Postgres warehouse, eight commented SQL queries
-carrying every analytical measure, a five-view dashboard, and 122 tests aimed at
-the failure mode that actually matters: a build that succeeds and produces a
-confident, wrong number.
+carrying every analytical measure, a five-view dashboard, and 163 tests, most
+aimed at the failure mode that actually matters: a build that succeeds and
+produces a confident, wrong number.
 
 **The programme around it** — a PRD organised by customer lifecycle stage, a
 rollout plan with gate criteria that can fail, a measurement plan that opens by
@@ -121,6 +121,7 @@ shape of the output rather than the state of the real labour market.)*
 
 ## Pipeline
 
+<!-- diagram: pipeline -->
 ```mermaid
 flowchart LR
     A[BLS OES<br/>2024 + 2021] --> B[build_dataset.py]
@@ -261,13 +262,17 @@ Not "does it return rows" — the failure that reaches a customer:
 | `test_percentile_choice_changes_the_answer` | A selector that silently stops changing anything |
 | `test_pool_summary_direction_matches_the_wage_premium` | A narrative saying "below" when the number is above |
 
-CI runs all 122 against a real `postgres:16` container, using the same loader
+CI runs all 163 against a real `postgres:16` container, using the same loader
 that loads real data — so the constraints are exercised on every push. A
 separate manual workflow runs the same suite against the live Neon database.
 
 ---
 
 ## The program layer
+
+Seven documents, indexed in **[docs/](docs/README.md)**. Each names an owner and
+a date, labels its judgment calls as judgment calls, and carries a Mermaid
+diagram that GitHub renders inline.
 
 | Document | What's in it |
 |---|---|
@@ -319,7 +324,7 @@ make load-real run
 ```
 
 ```bash
-make test                     # 122 tests
+make test                     # 163 tests
 make lint
 make explain                  # query plans
 ```

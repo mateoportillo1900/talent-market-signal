@@ -10,6 +10,50 @@ that has not thought about them in advance meets them at the worst moment.
 
 ## The map
 
+Grouped by the relationship rather than the org chart, because that is what
+determines how you approach each one.
+
+<!-- diagram: stakeholder-map -->
+```mermaid
+flowchart LR
+    subgraph DECIDE["Decide whether it continues"]
+        direction TB
+        LEAD["Insights lead<br/>accountable for scaling —<br/>and for stopping it"]
+        SALES["Sales leadership · GBO<br/>names the cohort, sets<br/>the expectation to use it"]
+    end
+
+    subgraph USE["Use it — and determine whether it has value"]
+        direction TB
+        FIELD["AEs / CSMs<br/>four minutes between meetings"]
+        READY["Sales readiness<br/>owns the enablement calendar"]
+    end
+
+    PROG(["Talent Market Signal"])
+
+    subgraph GUARD["Guard what it is allowed to say"]
+        direction TB
+        PMM["Product marketing<br/>customer-facing language"]
+        DS["Data science<br/>method rigour, no rival numbers"]
+        LEGAL["Legal / privacy<br/>public-data positioning"]
+    end
+
+    subgraph SHAPE["Shape what is worth building"]
+        direction TB
+        PROD["Product<br/>roadmap context, so I stop<br/>building around a closing gap"]
+    end
+
+    DECIDE ==> PROG
+    USE <==> PROG
+    GUARD ==> PROG
+    SHAPE --> PROG
+
+    style PROG fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+Only the **Use** relationship runs both ways, and that asymmetry is the job.
+Everyone else is consulted, informs, or approves; the field is the only group
+whose behaviour is simultaneously the input and the outcome.
+
 | Partner | What they need from me | What I need from them | Cadence |
 |---|---|---|---|
 | **Sales leadership (GBO)** | Evidence this makes reps more effective, in their language | Pilot cohort, and a public statement that using it is expected | Monthly |
@@ -64,7 +108,7 @@ reasonably want it justified.
 
 **How I would handle it:** Agree immediately, because they are right that it is
 a judgment call. The weights are documented with reasoning in
-`METHODOLOGY.md`, the components are exposed in the UI so nobody has to accept
+[`METHODOLOGY.md`](./METHODOLOGY.md), the components are exposed in the UI so nobody has to accept
 the composite on faith, and I would rather adopt their weighting than defend
 mine. The composite exists to be *sayable*, not to be optimal.
 
@@ -83,7 +127,7 @@ about whether there is a story.
 
 **Where I would hold:** If a customer can check a claim and find it wrong, it
 does not ship. That is not a style preference; it is the guardrail in
-`MEASUREMENT.md`.
+[`MEASUREMENT.md`](./MEASUREMENT.md).
 
 ### 4. Nobody uses it
 
@@ -120,3 +164,7 @@ programme. People who get recognised through your tool become its advocates.
 **Be the one who says the uncomfortable thing first.** The fastest way to be
 trusted with a number is to be the person who volunteered its limitations before
 anyone asked. It is also the only way the caveats survive being repeated.
+
+---
+
+<sub>**[← All documentation](./README.md)** · [Project README](../README.md) · Related: [Rollout & enablement](./GTM_ENABLEMENT.md) · [Methodology](./METHODOLOGY.md)</sub>

@@ -50,6 +50,42 @@ The programme is organised by where the customer is, not by what the data can
 do. The same underlying tables answer different questions at each stage, and the
 stage determines which one leads.
 
+<!-- diagram: lifecycle-stages -->
+```mermaid
+flowchart LR
+    subgraph STAGES["Where the customer is"]
+        direction LR
+        P["Prospect<br/>earn a first meeting<br/>with a point of view"]
+        O["Onboard<br/>a visible win<br/>in the first 90 days"]
+        A["Adopt<br/>a reason to come<br/>back each quarter"]
+        R["Renew<br/>show a decision changed,<br/>not just seats"]
+        E["Expand<br/>find the next problem<br/>before it is named"]
+        P --> O --> A --> R --> E
+    end
+
+    subgraph VIEWS["The view that leads"]
+        direction TB
+        TP["Talent Pool"]
+        CT["Cost of Talent"]
+        SS["Skills &amp; Sourcing"]
+    end
+
+    P -.-> TP
+    O -.-> TP
+    O -.-> CT
+    A -.-> CT
+    R -.-> SS
+    E -.-> TP
+
+    style R fill:#0A66C2,stroke:#0A66C2,color:#fff
+    style SS fill:#0A66C2,stroke:#0A66C2,color:#fff
+```
+
+**Why organised this way:** the same tables answer all five, so a
+feature-organised roadmap would say nothing about *when* to reach for which.
+The stage decides which question leads, and that is a programme decision rather
+than a data one.
+
 | Stage | The field's job | The insight that serves it | View |
 |---|---|---|---|
 | **Prospect** | Earn a first meeting with a point of view, not a pitch | "Your market for this role is in the 80th percentile for difficulty nationally" | Talent Pool |
@@ -128,7 +164,7 @@ risk.
 | Leading | Distinct field users in a 30-day window | 40% of the pilot cohort | Opening it once is the minimum precondition for everything else |
 | Leading | Repeat rate (users returning within 30 days) | > 50% | Curiosity produces one visit; usefulness produces the second. This is the honest early signal |
 | Lagging | Opportunities with an insight referenced in notes | 25% of pilot opportunities | The first evidence it reached a customer conversation |
-| Lagging | Win-rate delta, insight-referenced vs. matched control | Directional only | See `MEASUREMENT.md` — this is not cleanly attributable and should not be reported as if it were |
+| Lagging | Win-rate delta, insight-referenced vs. matched control | Directional only | See [`MEASUREMENT.md`](./MEASUREMENT.md) — this is not cleanly attributable and should not be reported as if it were |
 | Guardrail | Corrections issued after publication | Zero | One wrong number in front of a customer costs more trust than ten insights earn |
 
 **Repeat rate is the metric to defend in a review.** Total views can be inflated
@@ -166,3 +202,7 @@ Ordered by expected value, not by ease.
    anyone visits. It is a notification: *"the pool your customer relies on
    shrank 8% this quarter."* Pull tools get used by the already-curious; push
    reaches everyone else.
+
+---
+
+<sub>**[← All documentation](./README.md)** · [Project README](../README.md) · Related: [Methodology](./METHODOLOGY.md) · [Measurement](./MEASUREMENT.md)</sub>
