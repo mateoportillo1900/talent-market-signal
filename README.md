@@ -43,7 +43,7 @@ when real BLS data is loaded.</sub>
 <sub>SQL QUERIES<br/><sup>all analysis, zero pandas logic</sup></sub>
 </td>
 <td align="center" width="25%">
-<h3>163</h3>
+<h3>174</h3>
 <sub>TESTS<br/><sup>on real Postgres, every push</sup></sub>
 </td>
 <td align="center" width="25%">
@@ -79,7 +79,7 @@ whether anyone can tell.
 So this project is deliberately two things.
 
 **A working data product** — a Postgres warehouse, eight commented SQL queries
-carrying every analytical measure, a five-view dashboard, and 163 tests, most
+carrying every analytical measure, a five-view dashboard, and 174 tests, most
 aimed at the failure mode that actually matters: a build that succeeds and
 produces a confident, wrong number.
 
@@ -261,8 +261,9 @@ Not "does it return rows" — the failure that reaches a customer:
 | `test_baseline_metro_has_zero_delta` | A join anchoring every saving to the wrong metro |
 | `test_percentile_choice_changes_the_answer` | A selector that silently stops changing anything |
 | `test_pool_summary_direction_matches_the_wage_premium` | A narrative saying "below" when the number is above |
+| `test_findings_render_as_html_not_literal_markdown` | Markdown reaching the screen as literal `**asterisks**` |
 
-CI runs all 163 against a real `postgres:16` container, using the same loader
+CI runs all 174 against a real `postgres:16` container, using the same loader
 that loads real data — so the constraints are exercised on every push. A
 separate manual workflow runs the same suite against the live Neon database.
 
@@ -324,7 +325,7 @@ make load-real run
 ```
 
 ```bash
-make test                     # 163 tests
+make test                     # 174 tests
 make lint
 make explain                  # query plans
 ```
