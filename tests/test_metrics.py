@@ -335,6 +335,7 @@ def test_every_sql_file_is_exercised_by_a_test() -> None:
         "skill_adjacency",
         "skill_profile",
         "talent_pool_summary",
+        "mart_overview",
         "usage_by_day",
         "usage_by_view",
         "usage_top_requests",
@@ -415,3 +416,59 @@ def test_bar_charts_pad_the_axis_past_the_longest_bar(baseline_area) -> None:
 
     ranking = charts.competition_ranking(metrics.competition_index(SOC))
     assert ranking.layout.xaxis.range[1] > max(ranking.data[0].x)
+
+
+# ── Warehouse scope ──────────────────────────────────────────────────────────
+
+
+def test_mart_overview_returns_one_row_of_counts() -> None:
+    """Backs the Overview tab, so the UI does no arithmetic on the result."""
+    scope = metrics.mart_overview()
+
+    expected = {
+        "talent_rows",
+        "occupations",
+        "metros",
+        "states",
+        "rows_with_growth",
+        "growth_coverage_pct",
+        "wage_p50_min",
+        "wage_p50_max",
+        "skill_rows",
+        "skills_tracked",
+        "occupations_with_skills",
+    }
+    assert set(scope.index) == expected
+
+
+def test_mart_overview_agrees_with_the_dataset() -> None:
+    """The scope on screen must match the warehouse, not a hardcoded number.
+
+    A dashboard that states its own coverage and gets it wrong is worse than
+    one that says nothing, because the figure looks authoritative.
+    """
+    from tms import data
+
+    dataset = data.load()
+    scope = metrics.mart_overview()
+
+    assert int(scope["talent_rows"]) == len(dataset.talent)
+    assert int(scope["skill_rows"]) == len(dataset.skills)
+    assert int(scope["occupations"]) == dataset.talent["soc_code"].nunique()
+    assert int(scope["metros"]) == dataset.talent["area_code"].nunique()
+
+
+def test_mart_overview_growth_coverage_is_a_share_not_a_count() -> None:
+    """`rows_with_growth` and the percentage must describe the same thing.
+
+    Three-year growth is legitimately null where a metro has no prior-vintage
+    counterpart, so this is coverage rather than a quality score — but a
+    percentage that silently became a row count would still look plausible.
+    """
+    scope = metrics.mart_overview()
+
+    assert 0 <= float(scope["growth_coverage_pct"]) <= 100
+    assert int(scope["rows_with_growth"]) <= int(scope["talent_rows"])
+
+    share = 100 * int(scope["rows_with_growth"]) / int(scope["talent_rows"])
+    assert abs(float(scope["growth_coverage_pct"]) - share) < 0.1

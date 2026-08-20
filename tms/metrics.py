@@ -169,6 +169,20 @@ def available_metros(soc_code: str | None = None) -> pd.DataFrame:
     )
 
 
+# ── Warehouse scope ──────────────────────────────────────────────────────────
+
+
+def mart_overview() -> pd.Series:
+    """One row describing what is loaded: counts, coverage, and the wage span.
+
+    Backs the Overview tab. Read from the warehouse rather than hardcoded in
+    the UI, because the fixture and the real BLS extract differ in every one
+    of these figures and a screen that states its own scope should not be able
+    to be wrong about it.
+    """
+    return query.run("mart_overview").iloc[0]
+
+
 # ── Program health ───────────────────────────────────────────────────────────
 
 

@@ -116,6 +116,39 @@ st.markdown(
       .caveat code, .explain code { background: var(--surface-2);
                  padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.92em; }
 
+      /* ── Overview: opening paragraph ─────────────────────────────────── */
+      .lead { font-size: 1.0rem; color: var(--ink-2); line-height: 1.62;
+              max-width: 78ch; margin: 0.2rem 0 1.15rem 0; }
+
+      /* ── Overview: the pipeline strip ────────────────────────────────── */
+      /* Numbered rather than arrowed: CSS arrows between grid cells break the
+         moment the grid wraps to a second row, and this one wraps by design. */
+      .pipe { display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+              gap: 0.7rem; margin: 0.45rem 0 0.9rem 0; }
+      .pipe-step { border: 1px solid var(--line); border-radius: 10px;
+                   padding: 0.85rem 0.95rem 0.9rem 0.95rem;
+                   background: var(--surface); }
+      .pipe-n { width: 1.4rem; height: 1.4rem; border-radius: 999px;
+                background: var(--brand); color: #FFFFFF; font-size: 0.73rem;
+                font-weight: 700; display: flex; align-items: center;
+                justify-content: center; margin-bottom: 0.5rem; }
+      .pipe-h { font-size: 0.88rem; font-weight: 650; color: var(--ink);
+                line-height: 1.3; }
+      .pipe-b { font-size: 0.795rem; color: var(--ink-2); line-height: 1.47;
+                margin-top: 0.28rem; }
+      .pipe-t { font-size: 0.715rem; color: var(--ink-muted);
+                margin-top: 0.55rem; word-break: break-all;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      /* ── Prose measure ───────────────────────────────────────────────── */
+      /* Markdown paragraphs and lists otherwise run the full width of the
+         container — roughly 200 characters a line, well past the point where
+         the eye loses its place returning to the left margin. Tables and
+         charts are deliberately untouched; they need the width. */
+      div[data-testid="stMarkdownContainer"] p,
+      div[data-testid="stMarkdownContainer"] li { max-width: 86ch; }
+
       /* ── Section rule ────────────────────────────────────────────────── */
       .sec { margin-top: 1.9rem; padding-top: 1.15rem;
              border-top: 1px solid var(--line-soft); }
@@ -192,6 +225,32 @@ def caveat(text: str) -> None:
     st.markdown(f'<p class="caveat">{text}</p>', unsafe_allow_html=True)
 
 
+class Stage(NamedTuple):
+    """One step in the pipeline strip. `where` is the file that does it."""
+
+    heading: str
+    body: str
+    where: str
+
+
+def pipeline(stages: list[Stage]) -> None:
+    """The extract-to-screen strip on the Overview tab.
+
+    Numbered rather than joined by arrows: the grid wraps to a second row on a
+    narrow window, and drawn connectors point the wrong way when it does.
+    """
+    cells = [
+        f'<div class="pipe-step">'
+        f'<div class="pipe-n">{i}</div>'
+        f'<div class="pipe-h">{escape(s.heading)}</div>'
+        f'<div class="pipe-b">{escape(s.body)}</div>'
+        f'<div class="pipe-t">{escape(s.where)}</div>'
+        f"</div>"
+        for i, s in enumerate(stages, start=1)
+    ]
+    st.markdown(f'<div class="pipe">{"".join(cells)}</div>', unsafe_allow_html=True)
+
+
 def section(heading: str, how_to_read: str = "") -> None:
     """A ruled section break with its heading and optional reading guide."""
     st.markdown('<div class="sec"></div>', unsafe_allow_html=True)
@@ -239,6 +298,11 @@ def _metros(soc: str):
 @st.cache_data(ttl=60, show_spinner=False)
 def _usage(days: int):
     return metrics.usage_summary(days)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _overview():
+    return metrics.mart_overview()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -360,31 +424,248 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Open on first arrival, then stay out of the way.
-with st.expander(
-    "New here? What you're looking at", expanded=not st.session_state.get("oriented")
-):
+tab_overview, tab_pool, tab_cost, tab_skills, tab_health = st.tabs(
+    ["Overview", "Talent Pool", "Cost of Talent", "Skills & Sourcing", "Program Health"]
+)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Overview  —  the first thing anyone sees
+# ═════════════════════════════════════════════════════════════════════════════
+# Deliberately the landing tab. Every other view assumes you know what a
+# Competition Index is and which metro the numbers are measured against; this
+# one assumes nothing and is the only place that explains where the data came
+# from, what was done to it, and what it will not tell you.
+with tab_overview:
+    scope = _overview()
+
+    st.markdown("## What this is")
+    st.markdown(
+        '<p class="lead">A labour-market insights product built on public U.S. '
+        "federal data. It answers the question a talent acquisition leader "
+        "actually asks — <b>&ldquo;we can&rsquo;t fill this role, what do we "
+        "do?&rdquo;</b> — and answers it in a sentence someone can repeat in a "
+        "meeting without having opened the tool.</p>",
+        unsafe_allow_html=True,
+    )
+
+    stat_row(
+        [
+            Stat(
+                "Occupations",
+                f"{int(scope['occupations'])}",
+                f"across {len(schema.OCCUPATION_GROUPS)} families, "
+                "picked in the sidebar",
+            ),
+            Stat(
+                "Metro areas",
+                f"{int(scope['metros'])}",
+                f"in {int(scope['states'])} states, ranked against each other",
+            ),
+            Stat(
+                "Facts in the warehouse",
+                f"{int(scope['talent_rows']):,}",
+                "one row per occupation × metro: employment and five wage percentiles",
+            ),
+            Stat(
+                "Skill ratings",
+                f"{int(scope['skill_rows']):,}",
+                f"{int(scope['skills_tracked'])} O*NET skills scored 1-5 for "
+                "every occupation",
+            ),
+        ]
+    )
+
+    section(
+        "What you can do here",
+        "Pick a role and a home metro in the sidebar, then work left to right. "
+        "Each tab answers one question.",
+    )
     st.markdown(
         """
-Pick a role and a home metro in the sidebar, then work left to right:
-
 | Tab | The question it answers |
 |---|---|
 | **Talent Pool** | Where is this role hardest to hire, and why? |
 | **Cost of Talent** | What would N hires cost elsewhere — is the talent there? |
 | **Skills & Sourcing** | What defines this role, and who else could do it? |
 | **Program Health** | Is anyone using this? |
-
-**The blue-bordered box in each view is the point.** That sentence is written
-to survive being repeated by someone who never opened the tool; the charts
-under it are the evidence. Limits are listed in **About**.
 """
     )
-st.session_state.oriented = True
+    explain(
+        "<b>The blue-bordered box in each view is the point.</b> That sentence "
+        "is generated from the numbers on screen and written to survive being "
+        "repeated by someone who never opened the tool. The charts underneath "
+        "it are the evidence, not the message."
+    )
+    explain(
+        "If you only open one, make it <b>Skills &amp; Sourcing</b>. The first "
+        "two tabs tell a customer their market is tight and expensive, which "
+        "is reporting. Adjacency tells them which other occupation they could "
+        "hire from instead — the only output here that changes what somebody "
+        "does on Monday."
+    )
 
-tab_pool, tab_cost, tab_skills, tab_health, tab_about = st.tabs(
-    ["Talent Pool", "Cost of Talent", "Skills & Sourcing", "Program Health", "About"]
-)
+    section(
+        "Where the data comes from",
+        "Everything is public and free. No proprietary data, no personal data, "
+        "nothing scraped.",
+    )
+    st.markdown(
+        """
+| Source | Vintage | What it provides |
+|---|---|---|
+| **BLS OES**, metro | May 2024 | Employment and five wage percentiles |
+| **BLS OES**, metro | May 2021 | Prior vintage, for three-year growth |
+| **BLS OES**, national | May 2024 | The median each metro compares against |
+| **O\\*NET** database | 29.0 | Skill importance, 1-5, per occupation |
+| **BLS Projections** | 2024-34 | Ten-year outlook *(optional)* |
+"""
+    )
+    caveat(
+        "Every source above is <b>public domain</b> (BLS) or <b>CC BY 4.0</b> "
+        "(O*NET), which is what makes any of this publishable. The "
+        "Employment Projections feed is optional: if BLS moves it — they "
+        "reorganise between vintages — the ten-year outlook disappears and "
+        "nothing else changes."
+    )
+    caveat(
+        "Three years between OES vintages is deliberate, not a gap. OES "
+        "re-samples on a rolling three-year cycle, so comparing consecutive "
+        "years compares heavily overlapping samples and understates real "
+        "movement."
+    )
+
+    section(
+        "How the data gets here",
+        "Five stages. The boundary that matters is between stages 3 and 4: "
+        "everything left of the warehouse is a one-time build, and everything "
+        "right of it is a query against tables that are already correct.",
+    )
+    pipeline(
+        [
+            Stage(
+                "Extract",
+                "BLS workbooks and the O*NET database are downloaded once and "
+                "cached, so a re-run after a parsing fix costs seconds rather "
+                "than another 150 MB.",
+                "scripts/build_dataset.py",
+            ),
+            Stage(
+                "Filter and reshape",
+                "~830 SOC codes narrow to the ones in scope. Suppression "
+                "markers become null, never zero. Wide wage columns become one "
+                "row per occupation × metro.",
+                "scripts/build_dataset.py",
+            ),
+            Stage(
+                "Load",
+                "COPY into Postgres inside a single transaction. CHECK "
+                "constraints reject an inverted wage percentile at the door, so "
+                "a bad row never reaches a chart.",
+                "scripts/load_to_postgres.py",
+            ),
+            Stage(
+                "Query",
+                "Every measure is a commented SQL file using ANSI window "
+                "functions and CTEs. Nothing is computed in the application.",
+                "sql/*.sql",
+            ),
+            Stage(
+                "Present",
+                "Streamlit and Plotly draw the result, and each view generates "
+                "its written takeaway from the same numbers the charts use.",
+                "app.py",
+            ),
+        ]
+    )
+    explain(
+        "A failed load leaves the previous warehouse live and queryable rather "
+        "than half-replaced. That is the deliberate trade: <b>a stale mart that "
+        "is correct beats a fresh one that is wrong</b> — you can explain a "
+        "delay, but you cannot un-say a number a customer has already heard."
+    )
+
+    section(
+        "How the three measures are computed",
+        "Each is a judgment call as much as a calculation, and each is stated as one.",
+    )
+    st.markdown(
+        f"""
+**Talent Competition Index (0-100)** — how hard a metro is to hire in.
+Scarcity ({int(schema.INDEX_WEIGHTS["scarcity"] * 100)}%), wage premium
+({int(schema.INDEX_WEIGHTS["wage_premium"] * 100)}%) and supply growth
+({int(schema.INDEX_WEIGHTS["growth"] * 100)}%), each converted to a percentile
+rank across metros *before* the weights are applied — which is what keeps the
+composite bounded rather than clamped. Percentile rank, not a z-score,
+because BLS employment is long-tailed enough that New York would otherwise
+drag every mid-size metro into the bottom of the scale.
+
+**Wage arbitrage** — headcount × the wage difference against your home metro,
+at a percentile you choose. Base wages only: no benefits, equity or
+relocation. A saving that quietly bundles assumptions cannot be checked, and
+will be repeated anyway.
+
+**Skill adjacency** — mean-centred cosine similarity over O\\*NET vectors.
+Centring is the whole decision: importance is a strictly positive 1-5 scale,
+so raw cosine puts every pair of occupations in a narrow high band and ranks
+them by which ones score high on everything. Subtracting each skill's
+cross-occupation average widens the usable range about tenfold.
+"""
+    )
+
+    section(
+        "The stack",
+        "Chosen so the analysis outlives the tool that displays it.",
+    )
+    st.markdown(
+        """
+| Layer | What | Why this one |
+|---|---|---|
+| Warehouse | PostgreSQL 16 | A real planner to point at, free to host |
+| Analysis | ANSI SQL — windows, CTEs | Ports to Trino or Spark unchanged |
+| Access | psycopg 3 + a pool | One handshake per render, not per query |
+| Pipeline | Python, pandas, Parquet | Moves and reshapes; computes no measure |
+| App | Streamlit | The only layer Tableau would replace |
+| Charts | Plotly | Colour assigned by encoding job |
+| Tests | pytest, on real Postgres | Same loader that loads real data |
+"""
+    )
+
+    section(
+        "What it cannot tell you",
+        "Stated here rather than only in the documentation, because a caveat "
+        "that lives in a methodology file is a caveat nobody reads.",
+    )
+    st.markdown(
+        """
+- **Public data lags.** OES is a year or more behind. It describes the market
+  that was, not the one you are hiring in this quarter.
+- **SOC codes are not job titles.** "Software Developers" spans an enormous
+  range of seniority and specialism in one bucket — which is exactly why the
+  pay-spread figure is on screen rather than buried.
+- **There is no company dimension.** Public data cannot say which employers
+  compete for a pool, only how big and expensive it is. This is the
+  most-requested thing the tool cannot do.
+- **Nothing here is causal.** These are descriptive market statistics. A metro
+  being expensive and a metro being hard to hire in are correlated; neither
+  causes the other in any way this data can establish.
+- **Adjacency is about skills, not credentials.** Two occupations sharing a
+  skill profile does not mean a hiring manager, a licensing body, or a
+  candidate agrees they are substitutable.
+"""
+    )
+
+    section("Reading further")
+    st.markdown(
+        f"""
+The repository carries the programme around the tool, not just the code:
+a PRD organised by customer lifecycle stage, a measurement plan that opens by
+admitting what cannot be attributed, a rollout plan with gate criteria that
+can fail, and a methodology document naming every judgment call as one.
+
+[{GITHUB_URL}]({GITHUB_URL})
+"""
+    )
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -744,75 +1025,6 @@ with tab_health:
         "dashboard on top of this data would be the most misleading thing in "
         "the project. See <code>docs/MEASUREMENT.md</code> for the attribution "
         "problem and what would actually be needed to claim impact."
-    )
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-#  About
-# ═════════════════════════════════════════════════════════════════════════════
-with tab_about:
-    st.markdown(
-        f"""
-## What this is
-
-A labour-market insights product built on public U.S. data, to demonstrate the
-shape of work an insights team does: own a dataset, query it, surface it, and
-measure whether anyone acts on it.
-
-**The question it answers:** where is the talent for a role, what does it cost,
-and who else is competing for it.
-
-**Who it is for.** The reader is a salesperson or customer success manager with
-a few minutes before a customer conversation — not an analyst. That is why
-every view generates a written takeaway instead of leaving interpretation to
-whoever is looking at the chart.
-
-## Where the numbers come from
-
-| Source | Vintage | What it gives |
-|---|---|---|
-| **BLS OES** | May 2024, May 2021 | Employment and wage percentiles, by metro |
-| **BLS OES**, national | May 2024 | The national median metros compare to |
-| **O\\*NET** | 29.0 | Skill importance ratings per occupation, 1–5 |
-| **BLS Employment Projections** | 2024–34 | Ten-year national outlook *(optional)* |
-
-All public domain or CC BY. No proprietary data, no personal data, no scraping.
-
-Three years between OES vintages is deliberate: OES re-samples on a rolling
-three-year cycle, so a one-year gap compares overlapping samples and
-understates real movement.
-
-## How it's built
-
-Postgres holds a `mart` schema with two tables and a usage log. Every
-analytical measure is a file in `sql/` using ANSI window functions and CTEs, so
-the same logic ports to Trino, Spark SQL or Snowflake unchanged. Python binds
-parameters and hands back DataFrames; it computes nothing. Streamlit and Plotly
-draw the result.
-
-Data quality is enforced at load: `CHECK` constraints reject a wage-percentile
-inversion or an off-scale O\\*NET rating before it can reach a chart, and the
-load runs in one transaction so a failure leaves the previous mart intact.
-
-## What it cannot tell you
-
-- **Public data lags.** OES is a year or more behind. It describes the market
-  that was, not the one you are hiring in this quarter.
-- **SOC codes are not job titles.** "Software Developers" spans a huge range of
-  seniority and specialism in one bucket — which is why the pay-spread figure
-  is on screen rather than buried.
-- **There is no company dimension.** Public data cannot tell you which
-  employers compete for a pool, only how big and expensive it is. This is the
-  most-requested thing the tool cannot do.
-- **Nothing here is causal.** These are descriptive market statistics.
-- **Adjacency is about skills, not credentials.** Two occupations sharing a
-  skill profile does not mean a hiring manager agrees they are substitutable.
-
-## Source
-
-[{GITHUB_URL}]({GITHUB_URL}) — including the PRD, the measurement plan, and a
-methodology document naming every judgment call as one.
-"""
     )
 
 

@@ -39,11 +39,11 @@ when real BLS data is loaded.</sub>
 <sub>OCCUPATIONS × METROS<br/><sup>configured scope; 10 families</sup></sub>
 </td>
 <td align="center" width="25%">
-<h3>8</h3>
+<h3>9</h3>
 <sub>SQL QUERIES<br/><sup>all analysis, zero pandas logic</sup></sub>
 </td>
 <td align="center" width="25%">
-<h3>174</h3>
+<h3>186</h3>
 <sub>TESTS<br/><sup>on real Postgres, every push</sup></sub>
 </td>
 <td align="center" width="25%">
@@ -78,8 +78,8 @@ whether anyone can tell.
 
 So this project is deliberately two things.
 
-**A working data product** — a Postgres warehouse, eight commented SQL queries
-carrying every analytical measure, a five-view dashboard, and 174 tests, most
+**A working data product** — a Postgres warehouse, nine commented SQL queries
+carrying every analytical measure, a five-view dashboard, and 186 tests, most
 aimed at the failure mode that actually matters: a build that succeeds and
 produces a confident, wrong number.
 
@@ -130,7 +130,7 @@ flowchart LR
     B --> |filter · clean · join| E[Parquet]
     E --> F[load_to_postgres.py<br/>COPY, one transaction]
     F --> |CHECK constraints| G[(mart schema)]
-    G --> H[8 SQL queries]
+    G --> H[9 SQL queries]
     H --> I[Streamlit + Plotly]
     I --> J[usage_log]
     J --> G
@@ -159,11 +159,17 @@ insight — and the end reader here is a customer who never opens the tool.
 
 | View | Answers |
 |---|---|
+| **Overview** | What this is, where the data came from, what it cannot say |
 | **Talent Pool** | Where is this role hard to hire, and why |
 | **Cost of Talent** | What would N hires cost elsewhere — and is the talent actually there |
 | **Skills & Sourcing** | What defines this role, and who else could do it |
 | **Program Health** | Is anyone using this |
-| **About** | Sources, method, and what the data cannot say |
+
+<details>
+<summary><b>Overview</b> — the landing tab: sources, pipeline, stack, limits</summary>
+
+![Overview](docs/img/overview.png)
+</details>
 
 <details>
 <summary><b>Cost of Talent</b> — diverging bars, baseline pinned at zero</summary>
@@ -263,7 +269,7 @@ Not "does it return rows" — the failure that reaches a customer:
 | `test_pool_summary_direction_matches_the_wage_premium` | A narrative saying "below" when the number is above |
 | `test_findings_render_as_html_not_literal_markdown` | Markdown reaching the screen as literal `**asterisks**` |
 
-CI runs all 174 against a real `postgres:16` container, using the same loader
+CI runs all 186 against a real `postgres:16` container, using the same loader
 that loads real data — so the constraints are exercised on every push. A
 separate manual workflow runs the same suite against the live Neon database.
 
@@ -325,7 +331,7 @@ make load-real run
 ```
 
 ```bash
-make test                     # 174 tests
+make test                     # 186 tests
 make lint
 make explain                  # query plans
 ```
