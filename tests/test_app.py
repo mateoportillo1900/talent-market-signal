@@ -123,19 +123,43 @@ def test_overview_names_its_sources(app: AppTest, source: str) -> None:
     assert source in _overview_text(app), f"{source!r} is not named anywhere"
 
 
-def test_overview_shows_every_pipeline_stage(app: AppTest) -> None:
-    """Extract to screen, with the file that does each step."""
-    strips = _blocks(app, '<div class="pipe">')
-    assert len(strips) == 1, "expected exactly one pipeline strip"
-    strip = strips[0]
-    assert strip.count('class="pipe-step"') == 5, "a pipeline stage went missing"
-    for script in (
-        "scripts/build_dataset.py",
-        "scripts/load_to_postgres.py",
-        "sql/*.sql",
-        "app.py",
-    ):
-        assert script in strip, f"the strip does not say where {script} runs"
+def test_overview_diagrams_render_as_svg(app: AppTest) -> None:
+    """The Overview leads with two diagrams instead of walls of prose.
+
+    Inline SVG rather than an image file or a diagram library: nothing to
+    install on a deploy, and nothing that can 404. These assert both are
+    present and carry an accessible title, since a diagram with no text
+    alternative is a blank box to a screen reader.
+    """
+    svgs = [b for b in _blocks(app, "<svg") if "viewBox" in b]
+    assert len(svgs) == 2, f"expected two diagrams, found {len(svgs)}"
+    for svg in svgs:
+        assert 'role="img"' in svg, "diagram is not exposed as an image"
+        assert "<title" in svg, "diagram has no accessible title"
+
+    flow = next((s for s in svgs if "Postgres mart" in s), None)
+    assert flow, "the source-to-dashboard flow diagram is missing"
+    for stage in ("BLS OES", "O*NET", "Build", "SQL queries", "This dashboard"):
+        assert stage in flow, f"the flow diagram does not show {stage!r}"
+
+
+def test_index_diagram_weights_match_the_schema(app: AppTest) -> None:
+    """The drawn weights must be the weights the SQL actually applies.
+
+    A diagram is the most quotable thing on the page and the least likely to
+    be re-checked, so a hand-drawn 50/30/20 that drifts from the schema would
+    be repeated in an interview long after the code changed.
+    """
+    from tms import schema  # noqa: PLC0415
+
+    svgs = [b for b in _blocks(app, "<svg") if "Competition Index" in b]
+    assert svgs, "the Competition Index diagram is missing"
+    diagram = svgs[0]
+
+    for weight in schema.INDEX_WEIGHTS.values():
+        assert f"{int(weight * 100)}%" in diagram, (
+            f"the diagram does not show the {weight:.0%} weight in the schema"
+        )
 
 
 def test_overview_scope_figures_come_from_the_warehouse(app: AppTest) -> None:
@@ -150,7 +174,7 @@ def test_overview_scope_figures_come_from_the_warehouse(app: AppTest) -> None:
 
     scope = metrics.mart_overview()
     grids = _blocks(app, '<div class="stat-grid">')
-    overview_grid = next((g for g in grids if "Facts in the warehouse" in g), None)
+    overview_grid = next((g for g in grids if "Skill ratings" in g), None)
     assert overview_grid, "the Overview scope tiles are missing"
 
     for value in (
@@ -166,8 +190,47 @@ def test_overview_states_the_limits(app: AppTest) -> None:
     """The caveats live in the app, not only in the methodology document.
 
     A limit that only a reader of `docs/` ever sees is a limit that reaches no
-    customer, and these are the ones that get a claim walked back.
+    customer, and these are the ones that get a claim walked back. They stay
+    on the face of the Overview rather than inside an expander for the same
+    reason.
     """
     body = _overview_text(app)
     for limit in ("Public data lags", "no company dimension", "not job titles"):
         assert limit in body, f"the limit {limit!r} is not stated in the app"
+
+
+def test_the_app_compiles_without_deprecated_escapes() -> None:
+    """`\\*` in a normal string is a deprecated escape, and a future SyntaxError.
+
+    This has bitten this file three times: the markdown in the app needs a
+    literal backslash-asterisk to escape O*NET, and writing it with one
+    backslash still works today while emitting a DeprecationWarning nobody
+    reads. Ruff does not flag it. Compiling with warnings promoted to errors
+    does, which is the only reason it gets caught before Python 3.12+ turns it
+    into a hard failure.
+    """
+    import warnings  # noqa: PLC0415
+
+    source = APP.read_text(encoding="utf-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        warnings.simplefilter("error", SyntaxWarning)
+        compile(source, str(APP), "exec")
+
+
+def test_diagrams_are_not_rendered_as_code_blocks(app: AppTest) -> None:
+    """The bug this exists for, and it is invisible to every other test.
+
+    Streamlit runs markdown before honouring `unsafe_allow_html`, so any line
+    of an inline SVG indented four spaces becomes a fenced code block and the
+    diagram reaches the screen as its own source. Every assertion about the
+    SVG's *content* still passes while the page is visibly broken.
+    """
+    for svg in (b for b in _blocks(app, "<svg") if "viewBox" in b):
+        first = svg.lstrip("\n").split("\n")[0]
+        assert not first.startswith("    "), (
+            "an SVG block starts indented, so markdown will render it as code"
+        )
+        assert "\n" not in svg.strip(), (
+            "an SVG block spans multiple lines; indented lines become code"
+        )

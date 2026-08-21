@@ -74,7 +74,8 @@ st.markdown(
 
       /* ── Title block ─────────────────────────────────────────────────── */
       .title-sub { font-size: 0.95rem; color: var(--ink-2); line-height: 1.5;
-                   margin: 0.15rem 0 0.1rem 0; max-width: 72ch; }
+                   margin: 0.15rem 0 0.1rem 0;
+                   max-width: min(80%, 1040px); }
       .title-meta { font-size: 0.78rem; color: var(--ink-muted);
                     margin: 0.5rem 0 1.15rem 0; }
       .chip { display: inline-block; padding: 0.12rem 0.5rem; border-radius: 999px;
@@ -110,44 +111,41 @@ st.markdown(
 
       /* ── Orientation text ────────────────────────────────────────────── */
       .explain { font-size: 0.87rem; color: var(--ink-2); line-height: 1.55;
-                 margin: 0 0 0.85rem 0; max-width: 84ch; }
+                 margin: 0 0 0.85rem 0; max-width: min(86%, 1120px); }
       .caveat { font-size: 0.785rem; color: var(--ink-muted); line-height: 1.5;
-                margin: -0.35rem 0 0.4rem 0; max-width: 92ch; }
+                margin: -0.35rem 0 0.4rem 0;
+                max-width: min(88%, 1160px); }
       .caveat code, .explain code { background: var(--surface-2);
                  padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.92em; }
 
       /* ── Overview: opening paragraph ─────────────────────────────────── */
       .lead { font-size: 1.0rem; color: var(--ink-2); line-height: 1.62;
-              max-width: 78ch; margin: 0.2rem 0 1.15rem 0; }
-
-      /* ── Overview: the pipeline strip ────────────────────────────────── */
-      /* Numbered rather than arrowed: CSS arrows between grid cells break the
-         moment the grid wraps to a second row, and this one wraps by design. */
-      .pipe { display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
-              gap: 0.7rem; margin: 0.45rem 0 0.9rem 0; }
-      .pipe-step { border: 1px solid var(--line); border-radius: 10px;
-                   padding: 0.85rem 0.95rem 0.9rem 0.95rem;
-                   background: var(--surface); }
-      .pipe-n { width: 1.4rem; height: 1.4rem; border-radius: 999px;
-                background: var(--brand); color: #FFFFFF; font-size: 0.73rem;
-                font-weight: 700; display: flex; align-items: center;
-                justify-content: center; margin-bottom: 0.5rem; }
-      .pipe-h { font-size: 0.88rem; font-weight: 650; color: var(--ink);
-                line-height: 1.3; }
-      .pipe-b { font-size: 0.795rem; color: var(--ink-2); line-height: 1.47;
-                margin-top: 0.28rem; }
-      .pipe-t { font-size: 0.715rem; color: var(--ink-muted);
-                margin-top: 0.55rem; word-break: break-all;
-                font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+              max-width: min(80%, 1040px); margin: 0.2rem 0 1.15rem 0; }
 
       /* ── Prose measure ───────────────────────────────────────────────── */
-      /* Markdown paragraphs and lists otherwise run the full width of the
-         container — roughly 200 characters a line, well past the point where
-         the eye loses its place returning to the left margin. Tables and
-         charts are deliberately untouched; they need the width. */
-      div[data-testid="stMarkdownContainer"] p,
-      div[data-testid="stMarkdownContainer"] li { max-width: 86ch; }
+      /* Prose needs a reading measure; a full 1300px column is roughly 200
+         characters a line. But a fixed `ch` cap collapses to about half the
+         column and then reads as a broken layout sitting above full-width
+         tiles, so the measure is proportional and only clamped on very wide
+         screens. Tables and charts are untouched — they need the width. */
+      /* `p:not([class])` deliberately: .title-sub, .lead, .explain and
+         .caveat each carry their own measure, and a blanket rule here beats
+         them on specificity and flattens all four to one width.
+         List items are left alone — Streamlit already sizes the <ul>, and
+         capping the <li> on top of that compounds into a very narrow column. */
+      div[data-testid="stMarkdownContainer"] p:not([class]) {
+        max-width: min(82%, 1080px);
+      }
+
+      /* Streamlit renders widget labels through the same markdown container
+         as body copy. A reading measure is right for a paragraph and wrong
+         for a label: it wrapped "Where every number comes from" onto two
+         lines inside a 102px box. Chrome opts out. */
+      [data-testid="stExpander"] summary div[data-testid="stMarkdownContainer"] p,
+      label div[data-testid="stMarkdownContainer"] p,
+      [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
+      div[data-testid="stAlert"] div[data-testid="stMarkdownContainer"] p,
+      button div[data-testid="stMarkdownContainer"] p { max-width: none; }
 
       /* ── Section rule ────────────────────────────────────────────────── */
       .sec { margin-top: 1.9rem; padding-top: 1.15rem;
@@ -225,30 +223,18 @@ def caveat(text: str) -> None:
     st.markdown(f'<p class="caveat">{text}</p>', unsafe_allow_html=True)
 
 
-class Stage(NamedTuple):
-    """One step in the pipeline strip. `where` is the file that does it."""
+def diagram(markup: str) -> None:
+    """Render an inline SVG.
 
-    heading: str
-    body: str
-    where: str
-
-
-def pipeline(stages: list[Stage]) -> None:
-    """The extract-to-screen strip on the Overview tab.
-
-    Numbered rather than joined by arrows: the grid wraps to a second row on a
-    narrow window, and drawn connectors point the wrong way when it does.
+    The indentation matters, and not in the obvious way: Streamlit runs the
+    string through markdown before honouring `unsafe_allow_html`, and markdown
+    turns any line indented four spaces or more into a code block. A readable,
+    indented SVG therefore reaches the screen as its own source. Flattening to
+    one line removes the indentation; joining on a space rather than nothing
+    keeps words apart inside <title> and <text> elements that wrap.
     """
-    cells = [
-        f'<div class="pipe-step">'
-        f'<div class="pipe-n">{i}</div>'
-        f'<div class="pipe-h">{escape(s.heading)}</div>'
-        f'<div class="pipe-b">{escape(s.body)}</div>'
-        f'<div class="pipe-t">{escape(s.where)}</div>'
-        f"</div>"
-        for i, s in enumerate(stages, start=1)
-    ]
-    st.markdown(f'<div class="pipe">{"".join(cells)}</div>', unsafe_allow_html=True)
+    flat = " ".join(line.strip() for line in markup.strip().splitlines())
+    st.markdown(flat, unsafe_allow_html=True)
 
 
 def section(heading: str, how_to_read: str = "") -> None:
@@ -257,6 +243,134 @@ def section(heading: str, how_to_read: str = "") -> None:
     st.markdown(f"## {heading}")
     if how_to_read:
         explain(how_to_read)
+
+
+# ── Diagrams ─────────────────────────────────────────────────────────────────
+# Inline SVG rather than a diagram library or a committed PNG: it needs no
+# dependency to install on a deploy, it stays sharp at any width, and it picks
+# up the same CSS custom properties as the rest of the page, so the diagram
+# cannot drift away from the palette around it.
+
+PIPELINE_SVG = """
+<svg viewBox="0 0 1060 190" width="100%" role="img"
+     aria-labelledby="pipe-title"
+     style="max-width:1060px;height:auto;margin:0.2rem 0 0.4rem 0;">
+  <title id="pipe-title">Public data is built once into a Postgres warehouse,
+  queried in SQL, and drawn by this dashboard</title>
+  <defs>
+    <marker id="tip" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="var(--ink-muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit">
+    <!-- sources -->
+    <rect x="2" y="16" width="172" height="56" rx="9"
+          fill="var(--surface-2)" stroke="var(--line)"/>
+    <text x="88" y="40" text-anchor="middle" font-size="15" font-weight="650"
+          fill="var(--ink)">BLS OES</text>
+    <text x="88" y="58" text-anchor="middle" font-size="12"
+          fill="var(--ink-muted)">wages · employment</text>
+
+    <rect x="2" y="102" width="172" height="56" rx="9"
+          fill="var(--surface-2)" stroke="var(--line)"/>
+    <text x="88" y="126" text-anchor="middle" font-size="15" font-weight="650"
+          fill="var(--ink)">O*NET</text>
+    <text x="88" y="144" text-anchor="middle" font-size="12"
+          fill="var(--ink-muted)">skill ratings</text>
+
+    <path d="M174,44 H196 V87" fill="none" stroke="var(--ink-muted)"/>
+    <path d="M174,130 H196 V103" fill="none" stroke="var(--ink-muted)"/>
+    <path d="M196,95 H216" fill="none" stroke="var(--ink-muted)"
+          marker-end="url(#tip)"/>
+
+    <!-- build -->
+    <rect x="224" y="67" width="172" height="56" rx="9"
+          fill="var(--surface)" stroke="var(--line)"/>
+    <text x="310" y="91" text-anchor="middle" font-size="15" font-weight="650"
+          fill="var(--ink)">Build</text>
+    <text x="310" y="109" text-anchor="middle" font-size="12"
+          fill="var(--ink-muted)">filter · clean · join</text>
+    <path d="M396,95 H434" fill="none" stroke="var(--ink-muted)"
+          marker-end="url(#tip)"/>
+
+    <!-- warehouse -->
+    <rect x="442" y="67" width="176" height="56" rx="9"
+          fill="var(--brand)" stroke="var(--brand)"/>
+    <text x="530" y="91" text-anchor="middle" font-size="15" font-weight="650"
+          fill="#FFFFFF">Postgres mart</text>
+    <text x="530" y="109" text-anchor="middle" font-size="12"
+          fill="#DCEAFB">bad rows rejected here</text>
+    <path d="M618,95 H656" fill="none" stroke="var(--ink-muted)"
+          marker-end="url(#tip)"/>
+
+    <!-- sql -->
+    <rect x="664" y="67" width="172" height="56" rx="9"
+          fill="var(--surface)" stroke="var(--line)"/>
+    <text x="750" y="91" text-anchor="middle" font-size="15" font-weight="650"
+          fill="var(--ink)">SQL queries</text>
+    <text x="750" y="109" text-anchor="middle" font-size="12"
+          fill="var(--ink-muted)">every measure lives here</text>
+    <path d="M836,95 H874" fill="none" stroke="var(--ink-muted)"
+          marker-end="url(#tip)"/>
+
+    <!-- app -->
+    <rect x="882" y="67" width="174" height="56" rx="9"
+          fill="var(--surface)" stroke="var(--line)"/>
+    <text x="969" y="91" text-anchor="middle" font-size="15" font-weight="650"
+          fill="var(--ink)">This dashboard</text>
+    <text x="969" y="109" text-anchor="middle" font-size="12"
+          fill="var(--ink-muted)">draws, never computes</text>
+  </g>
+</svg>
+"""
+
+INDEX_SVG = """
+<svg viewBox="0 0 1060 132" width="100%" role="img"
+     aria-labelledby="idx-title"
+     style="max-width:1060px;height:auto;margin:0.2rem 0 0.4rem 0;">
+  <title id="idx-title">The Competition Index weights scarcity at 50 percent,
+  wage premium at 30 percent and supply growth at 20 percent</title>
+  <defs>
+    <marker id="tip2" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="var(--ink-muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit">
+    <rect x="2"   y="30" width="358" height="38" fill="#104281"/>
+    <rect x="362" y="30" width="214" height="38" fill="#2a78d6"/>
+    <rect x="578" y="30" width="142" height="38" fill="#86b6ef"/>
+
+    <text x="181" y="55" text-anchor="middle" font-size="14" font-weight="650"
+          fill="#FFFFFF">50%</text>
+    <text x="469" y="55" text-anchor="middle" font-size="14" font-weight="650"
+          fill="#FFFFFF">30%</text>
+    <text x="649" y="55" text-anchor="middle" font-size="14" font-weight="650"
+          fill="var(--ink)">20%</text>
+
+    <text x="181" y="90" text-anchor="middle" font-size="13"
+          fill="var(--ink-2)">Scarcity</text>
+    <text x="181" y="107" text-anchor="middle" font-size="11.5"
+          fill="var(--ink-muted)">how thin the local pool is</text>
+    <text x="469" y="90" text-anchor="middle" font-size="13"
+          fill="var(--ink-2)">Wage premium</text>
+    <text x="469" y="107" text-anchor="middle" font-size="11.5"
+          fill="var(--ink-muted)">vs the national median</text>
+    <text x="649" y="90" text-anchor="middle" font-size="13"
+          fill="var(--ink-2)">Supply growth</text>
+    <text x="649" y="107" text-anchor="middle" font-size="11.5"
+          fill="var(--ink-muted)">three-year change</text>
+
+    <path d="M736,49 H778" fill="none" stroke="var(--ink-muted)"
+          marker-end="url(#tip2)"/>
+    <text x="790" y="44" font-size="15" font-weight="650"
+          fill="var(--ink)">Competition Index</text>
+    <text x="790" y="64" font-size="12"
+          fill="var(--ink-muted)">0-100 · higher means harder to hire</text>
+  </g>
+</svg>
+"""
 
 
 # ── Cached readers ───────────────────────────────────────────────────────────
@@ -403,9 +517,9 @@ Developers. Codes are buckets, not job titles.
 
 if _is_synthetic():
     st.warning(
-        "**Synthetic data.** This instance is running on the generated test "
-        "fixture, not real BLS figures. Numbers are invented and must not be "
-        "cited or screenshotted. Run `make build load-real` for real data.",
+        "**Synthetic data.** This instance is running on a generated test "
+        "fixture, not real BLS figures — the numbers are invented and must "
+        "not be cited.",
         icon="⚠️",
     )
 
@@ -444,8 +558,7 @@ with tab_overview:
         '<p class="lead">A labour-market insights product built on public U.S. '
         "federal data. It answers the question a talent acquisition leader "
         "actually asks — <b>&ldquo;we can&rsquo;t fill this role, what do we "
-        "do?&rdquo;</b> — and answers it in a sentence someone can repeat in a "
-        "meeting without having opened the tool.</p>",
+        "do?&rdquo;</b></p>",
         unsafe_allow_html=True,
     )
 
@@ -454,33 +567,35 @@ with tab_overview:
             Stat(
                 "Occupations",
                 f"{int(scope['occupations'])}",
-                f"across {len(schema.OCCUPATION_GROUPS)} families, "
-                "picked in the sidebar",
+                f"across {len(schema.OCCUPATION_GROUPS)} families",
             ),
             Stat(
                 "Metro areas",
                 f"{int(scope['metros'])}",
-                f"in {int(scope['states'])} states, ranked against each other",
+                f"in {int(scope['states'])} states",
             ),
             Stat(
-                "Facts in the warehouse",
+                "Facts",
                 f"{int(scope['talent_rows']):,}",
-                "one row per occupation × metro: employment and five wage percentiles",
+                "one row per occupation × metro",
             ),
             Stat(
                 "Skill ratings",
                 f"{int(scope['skill_rows']):,}",
-                f"{int(scope['skills_tracked'])} O*NET skills scored 1-5 for "
-                "every occupation",
+                f"{int(scope['skills_tracked'])} O*NET skills, scored 1-5",
             ),
         ]
     )
 
-    section(
-        "What you can do here",
-        "Pick a role and a home metro in the sidebar, then work left to right. "
-        "Each tab answers one question.",
+    section("How the data gets here")
+    diagram(PIPELINE_SVG)
+    caveat(
+        "Both sources are public domain or CC BY. The warehouse is the "
+        "boundary: everything left of it is a one-time build, everything "
+        "right of it is a query against tables that are already correct."
     )
+
+    section("What you can do here")
     st.markdown(
         """
 | Tab | The question it answers |
@@ -492,177 +607,80 @@ with tab_overview:
 """
     )
     explain(
-        "<b>The blue-bordered box in each view is the point.</b> That sentence "
-        "is generated from the numbers on screen and written to survive being "
-        "repeated by someone who never opened the tool. The charts underneath "
-        "it are the evidence, not the message."
-    )
-    explain(
-        "If you only open one, make it <b>Skills &amp; Sourcing</b>. The first "
-        "two tabs tell a customer their market is tight and expensive, which "
-        "is reporting. Adjacency tells them which other occupation they could "
-        "hire from instead — the only output here that changes what somebody "
-        "does on Monday."
+        "The blue-bordered box in each view is the point — a sentence written "
+        "to survive being repeated by someone who never opened the tool. "
+        "If you only open one tab, make it <b>Skills &amp; Sourcing</b>: it is "
+        "the only one that changes what somebody does on Monday."
     )
 
-    section(
-        "Where the data comes from",
-        "Everything is public and free. No proprietary data, no personal data, "
-        "nothing scraped.",
+    section("The headline measure")
+    diagram(INDEX_SVG)
+    caveat(
+        "Each component becomes a percentile rank across metros <i>before</i> "
+        "the weights are applied. The weights are a judgment call, not a "
+        "derived result — scarcity leads because it is the constraint a "
+        "recruiter can least easily work around."
     )
+
+    section("Before you quote any of this")
     st.markdown(
         """
+- **Public data lags.** It describes the market that was, not the one you are
+  hiring in this quarter.
+- **SOC codes are not job titles.** One bucket spans a wide range of seniority.
+- **There is no company dimension.** It cannot say who else is hiring — the
+  most-requested thing it cannot do.
+"""
+    )
+
+    with st.expander("Where every number comes from"):
+        st.markdown(
+            """
 | Source | Vintage | What it provides |
 |---|---|---|
 | **BLS OES**, metro | May 2024 | Employment and five wage percentiles |
 | **BLS OES**, metro | May 2021 | Prior vintage, for three-year growth |
 | **BLS OES**, national | May 2024 | The median each metro compares against |
 | **O\\*NET** database | 29.0 | Skill importance, 1-5, per occupation |
-| **BLS Projections** | 2024-34 | Ten-year outlook *(optional)* |
+| **BLS Employment Projections** | 2024-34 | Ten-year outlook *(optional)* |
+
+Everything is **public domain** (BLS) or **CC BY 4.0** (O\\*NET). No proprietary
+data, no personal data, nothing scraped.
+
+Three years between OES vintages is deliberate: OES re-samples on a rolling
+three-year cycle, so comparing consecutive years compares overlapping samples
+and understates real movement.
 """
-    )
-    caveat(
-        "Every source above is <b>public domain</b> (BLS) or <b>CC BY 4.0</b> "
-        "(O*NET), which is what makes any of this publishable. The "
-        "Employment Projections feed is optional: if BLS moves it — they "
-        "reorganise between vintages — the ten-year outlook disappears and "
-        "nothing else changes."
-    )
-    caveat(
-        "Three years between OES vintages is deliberate, not a gap. OES "
-        "re-samples on a rolling three-year cycle, so comparing consecutive "
-        "years compares heavily overlapping samples and understates real "
-        "movement."
-    )
+        )
 
-    section(
-        "How the data gets here",
-        "Five stages. The boundary that matters is between stages 3 and 4: "
-        "everything left of the warehouse is a one-time build, and everything "
-        "right of it is a query against tables that are already correct.",
-    )
-    pipeline(
-        [
-            Stage(
-                "Extract",
-                "BLS workbooks and the O*NET database are downloaded once and "
-                "cached, so a re-run after a parsing fix costs seconds rather "
-                "than another 150 MB.",
-                "scripts/build_dataset.py",
-            ),
-            Stage(
-                "Filter and reshape",
-                "~830 SOC codes narrow to the ones in scope. Suppression "
-                "markers become null, never zero. Wide wage columns become one "
-                "row per occupation × metro.",
-                "scripts/build_dataset.py",
-            ),
-            Stage(
-                "Load",
-                "COPY into Postgres inside a single transaction. CHECK "
-                "constraints reject an inverted wage percentile at the door, so "
-                "a bad row never reaches a chart.",
-                "scripts/load_to_postgres.py",
-            ),
-            Stage(
-                "Query",
-                "Every measure is a commented SQL file using ANSI window "
-                "functions and CTEs. Nothing is computed in the application.",
-                "sql/*.sql",
-            ),
-            Stage(
-                "Present",
-                "Streamlit and Plotly draw the result, and each view generates "
-                "its written takeaway from the same numbers the charts use.",
-                "app.py",
-            ),
-        ]
-    )
-    explain(
-        "A failed load leaves the previous warehouse live and queryable rather "
-        "than half-replaced. That is the deliberate trade: <b>a stale mart that "
-        "is correct beats a fresh one that is wrong</b> — you can explain a "
-        "delay, but you cannot un-say a number a customer has already heard."
-    )
-
-    section(
-        "How the three measures are computed",
-        "Each is a judgment call as much as a calculation, and each is stated as one.",
-    )
-    st.markdown(
-        f"""
-**Talent Competition Index (0-100)** — how hard a metro is to hire in.
-Scarcity ({int(schema.INDEX_WEIGHTS["scarcity"] * 100)}%), wage premium
-({int(schema.INDEX_WEIGHTS["wage_premium"] * 100)}%) and supply growth
-({int(schema.INDEX_WEIGHTS["growth"] * 100)}%), each converted to a percentile
-rank across metros *before* the weights are applied — which is what keeps the
-composite bounded rather than clamped. Percentile rank, not a z-score,
-because BLS employment is long-tailed enough that New York would otherwise
-drag every mid-size metro into the bottom of the scale.
-
-**Wage arbitrage** — headcount × the wage difference against your home metro,
-at a percentile you choose. Base wages only: no benefits, equity or
-relocation. A saving that quietly bundles assumptions cannot be checked, and
-will be repeated anyway.
+    with st.expander("How the measures work, and what it is built on"):
+        st.markdown(
+            """
+**Wage arbitrage** — headcount × the wage gap against your home metro, at a
+percentile you choose. Base wages only: no benefits, equity or relocation.
+A pool-depth guardrail refuses a recommendation the local market cannot
+support.
 
 **Skill adjacency** — mean-centred cosine similarity over O\\*NET vectors.
 Centring is the whole decision: importance is a strictly positive 1-5 scale,
-so raw cosine puts every pair of occupations in a narrow high band and ranks
-them by which ones score high on everything. Subtracting each skill's
+so raw cosine puts every pair in a narrow band. Subtracting each skill's
 cross-occupation average widens the usable range about tenfold.
-"""
-    )
 
-    section(
-        "The stack",
-        "Chosen so the analysis outlives the tool that displays it.",
-    )
-    st.markdown(
-        """
 | Layer | What | Why this one |
 |---|---|---|
 | Warehouse | PostgreSQL 16 | A real planner to point at, free to host |
 | Analysis | ANSI SQL — windows, CTEs | Ports to Trino or Spark unchanged |
 | Access | psycopg 3 + a pool | One handshake per render, not per query |
 | Pipeline | Python, pandas, Parquet | Moves and reshapes; computes no measure |
-| App | Streamlit | The only layer Tableau would replace |
-| Charts | Plotly | Colour assigned by encoding job |
+| App | Streamlit + Plotly | The only layer Tableau would replace |
 | Tests | pytest, on real Postgres | Same loader that loads real data |
 """
-    )
+        )
 
-    section(
-        "What it cannot tell you",
-        "Stated here rather than only in the documentation, because a caveat "
-        "that lives in a methodology file is a caveat nobody reads.",
-    )
-    st.markdown(
-        """
-- **Public data lags.** OES is a year or more behind. It describes the market
-  that was, not the one you are hiring in this quarter.
-- **SOC codes are not job titles.** "Software Developers" spans an enormous
-  range of seniority and specialism in one bucket — which is exactly why the
-  pay-spread figure is on screen rather than buried.
-- **There is no company dimension.** Public data cannot say which employers
-  compete for a pool, only how big and expensive it is. This is the
-  most-requested thing the tool cannot do.
-- **Nothing here is causal.** These are descriptive market statistics. A metro
-  being expensive and a metro being hard to hire in are correlated; neither
-  causes the other in any way this data can establish.
-- **Adjacency is about skills, not credentials.** Two occupations sharing a
-  skill profile does not mean a hiring manager, a licensing body, or a
-  candidate agrees they are substitutable.
-"""
-    )
-
-    section("Reading further")
     st.markdown(
         f"""
-The repository carries the programme around the tool, not just the code:
-a PRD organised by customer lifecycle stage, a measurement plan that opens by
-admitting what cannot be attributed, a rollout plan with gate criteria that
-can fail, and a methodology document naming every judgment call as one.
-
+Full methodology, the PRD, the measurement plan and what was learned building
+this with an AI assistant are all in the repository:
 [{GITHUB_URL}]({GITHUB_URL})
 """
     )

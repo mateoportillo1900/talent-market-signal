@@ -22,9 +22,9 @@ role, what do we do?"* — and it answers it in a sentence someone can repeat.
 ![The Talent Pool view](docs/img/talent-pool.png)
 
 <sub>Every view pairs its charts with a generated plain-English takeaway — the
-end reader is a customer who never opens the tool. Running here on the
-synthetic test fixture, which is why the banner is showing; it disappears
-when real BLS data is loaded.</sub>
+end reader is a customer who never opens the tool. <b>These screenshots run on
+the synthetic test fixture, so every figure in them is invented</b>; the app
+shows a standing warning banner whenever it is running on fixture data.</sub>
 
 </div>
 
@@ -43,7 +43,7 @@ when real BLS data is loaded.</sub>
 <sub>SQL QUERIES<br/><sup>all analysis, zero pandas logic</sup></sub>
 </td>
 <td align="center" width="25%">
-<h3>186</h3>
+<h3>189</h3>
 <sub>TESTS<br/><sup>on real Postgres, every push</sup></sub>
 </td>
 <td align="center" width="25%">
@@ -79,7 +79,7 @@ whether anyone can tell.
 So this project is deliberately two things.
 
 **A working data product** — a Postgres warehouse, nine commented SQL queries
-carrying every analytical measure, a five-view dashboard, and 186 tests, most
+carrying every analytical measure, a five-view dashboard, and 189 tests, most
 aimed at the failure mode that actually matters: a build that succeeds and
 produces a confident, wrong number.
 
@@ -150,8 +150,9 @@ quarters are permanently unmeasurable.
 
 ![Talent Pool view](docs/img/talent-pool.png)
 
-*Screenshots run on the synthetic test fixture — the warning banner is a
-deliberate guard, and it disappears once real BLS data is loaded.*
+*Screenshots run on the synthetic test fixture, so the numbers in them are
+invented. The app carries a warning banner while it is on fixture data, and the
+banner disappears once the real BLS extract is loaded.*
 
 Five views, each pairing charts with a **generated plain-English takeaway**. A
 chart handed to someone who does not already know the answer is a puzzle, not an
@@ -269,7 +270,7 @@ Not "does it return rows" — the failure that reaches a customer:
 | `test_pool_summary_direction_matches_the_wage_premium` | A narrative saying "below" when the number is above |
 | `test_findings_render_as_html_not_literal_markdown` | Markdown reaching the screen as literal `**asterisks**` |
 
-CI runs all 186 against a real `postgres:16` container, using the same loader
+CI runs all 189 against a real `postgres:16` container, using the same loader
 that loads real data — so the constraints are exercised on every push. A
 separate manual workflow runs the same suite against the live Neon database.
 
@@ -331,7 +332,7 @@ make load-real run
 ```
 
 ```bash
-make test                     # 186 tests
+make test                     # 189 tests
 make lint
 make explain                  # query plans
 ```

@@ -108,13 +108,19 @@ def test_queries_reuse_pooled_connections() -> None:
     for _ in range(20):
         metrics.competition_index("15-1252")
 
+    # Scoped to this application deliberately. A bare count of every client
+    # backend also counts a psql session, a running instance of the app, or
+    # another developer on the same hosted database — and then reports "the
+    # pool is not being reused", which is both alarming and wrong.
     backends = db.run_query(
         """
         SELECT COUNT(*) AS n
         FROM pg_stat_activity
         WHERE datname = current_database()
           AND backend_type = 'client backend'
-        """
+          AND application_name = %(app)s
+        """,
+        {"app": db.APPLICATION_NAME},
     ).iloc[0]["n"]
 
     assert int(backends) <= db.POOL_MAX + 1, (

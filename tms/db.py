@@ -74,6 +74,11 @@ POOL_TIMEOUT = 20.0
 # fails with a closed-connection error that looks like a bug in the app.
 CONNECT_TIMEOUT = 15
 
+# Stamped on every connection. Shows up in `pg_stat_activity.application_name`,
+# which is how you tell this app's connections from anything else pointed at the
+# same database — a psql session, a second instance, another developer.
+APPLICATION_NAME = "talent-market-signal"
+
 _pool: ConnectionPool | None = None
 _pool_lock = threading.Lock()
 
@@ -95,7 +100,10 @@ def pool() -> ConnectionPool:
                     min_size=POOL_MIN,
                     max_size=POOL_MAX,
                     timeout=POOL_TIMEOUT,
-                    kwargs={"connect_timeout": CONNECT_TIMEOUT},
+                    kwargs={
+                        "connect_timeout": CONNECT_TIMEOUT,
+                        "application_name": APPLICATION_NAME,
+                    },
                     # Validate before handing a connection out. A serverless
                     # database that idled will have dropped it; this discards
                     # the dead one and opens a fresh one instead of failing
